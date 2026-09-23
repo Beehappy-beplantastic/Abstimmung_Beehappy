@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beehappy - Pflanzen-Abstimmung</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; background: #f4f9f4; color: #333; }
+        h1, h2 { color: #2e7d32; text-align: center; }
+        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .item { display: flex; justify-content: space-between; align-items: center; }
+        button { background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.super { background: #ff9800; margin-left: 5px; }
+        button.admin-btn { background: #555; color: white; margin-top: 10px; width: 100%; }
+        button.reset-btn { background: #d32f2f; color: white; margin-top: 10px; width: 100%; }
+        input[type="text"] { width: 65%; padding: 8px; }
+        .info-msg { padding: 10px; background: #e8f5e9; border-left: 4px solid #2e7d32; margin-bottom: 15px; }
+        .archive-item { border-bottom: 1px solid #eee; padding: 8px 0; }
+        .archive-item:last-child { border-bottom: none; }
+        .admin-panel { display: none; background: #fff3e0; border: 1px solid #ffe0b2; }
+    </style>
+</head>
+<body>
+
+    <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
+
+    <div id="statusMessage" class="info-msg">
+        Wähle deinen Lieblingsnamen oder reiche einen eigenen Vorschlag ein!
+    </div>
+
+    <!-- Vorschlag einreichen -->
+    <div class="card">
+        <h3>Neuen Namen vorschlagen</h3>
+        <input type="text" id="nameInput" placeholder="Pflanzenname eingeben...">
+        <button id="addBtn" onclick="addName()">Hinzufügen</button>
+    </div>
+
+    <!-- Aktuelle Liste der Namen -->
+    <h2>Aktuelle Abstimmung</h2>
+    <div id="nameList"></div>
+
+    <!-- Archiv für alte Wochen -->
+    <div class="card" style="margin-top: 30px;">
+        <h2>📜 Archiv vergangener Wochen</h2>
+        <div id="archiveList">
+            <small>Noch keine vergangenen Abstimmungen archiviert.</small>
+        </div>
+    </div>
+
+    <!-- Versteckter Admin-Bereich -->
+    <div style="margin-top: 40px;">
+        <button class="admin-btn" onclick="toggleAdminPanel()">⚙️ Admin-Bereich (Lehrer / Orga)</button>
+        <div id="adminPanel" class="card admin-panel">
+            <h3>Admin-Steuerung</h3>
+            <p><small>Hier kannst du die Abstimmung beenden und das Ergebnis archivieren.</small></p>
+            <button class="reset-btn" onclick="resetWeeklyVoting()">Woche beenden & Ergebnisse archivieren</button>
+        </div>
+    </div>
+
+    <script>
+        // PASSWORT FÜR DEN ADMIN-BEREICH
+        const ADMIN_PASSWORD = "Po1ar6aer_ist_kalt!";
+
+        // Cookie-Hilfsfunktionen für die Stimm-Sperre (7 Tage Speicherung)
+        function setVoteCookie(name, value, days) {
+            const date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + date.toUTCString() + "; path=/";
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+            }
+            return null;
+        }
+
+        function deleteCookie(name) {
+            document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        }
+
+        // Persistent im Browser gespeicherte Namensliste (bleibt beim Neuladen erhalten!)
+        let names = JSON.parse(localStorage.getItem('beehappy_names')) || [
+            { id: 1, text: "Flori die Blume", votes: 5 },
+            { id: 2, text: "Bee-Gonie", votes: 12 }
+        ];
+
+        let archive = JSON.parse(localStorage.getItem('beehappy_archive')) || [];
+
+        function saveState() {
+            localStorage.setItem('beehappy_names', JSON.stringify(names));
+            localStorage.setItem('beehappy_archive', JSON.stringify(archive));
+        }
+
+        function render() {
+            const list = document.getElementById('nameList');
+            const hasVoted = getCookie('beehappy_action_done') !== null;
+            const statusMsg = document.getElementById('statusMessage');
+            const addBtn = document.getElementById('addBtn');
+            const nameInput = document.getElementById('nameInput');
+
+            if (hasVoted) {
+                statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
+                addBtn.disabled = true;
+                nameInput.disabled = true;
+            } else {
+                statusMsg.innerHTML = "Du kannst <strong>entweder</strong> 1 Stimme abgeben <strong>oder</strong> 1 neuen Namen vorschlagen.";
+                addBtn.disabled = false;
+                nameInput.disabled = false;
+            }
+
+            list.innerHTML = '';
+            
+            // Nach Stimmen sortieren
+            names.sort((a, b) => b.votes - a.votes);
+
+            names.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'card item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${item.text}</strong><br>
+                        <small>Stimmen: ${item.votes}</small>
+                    </div>
+                    <div>
+                        <button onclick="vote(${item.id})" ${hasVoted ? 'disabled' : ''}>
+                            ${hasVoted ? 'Gestimmt' : '+1 Stimme'}
+                        </button>
+                        <button class="super" onclick="buySuperVote('${item.text}')">Super-Stimme (€)</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+
+            renderArchive();
+        }
+
+        function renderArchive() {
+            const archiveDiv = document.getElementById('archiveList');
+            if (archive.length === 0) {
+                archiveDiv.innerHTML = '<small>Noch keine vergangenen Abstimmungen archiviert.</small>';
+                return;
+            }
+
+            archiveDiv.innerHTML = '';
+            archive.forEach(weekData => {
+                const weekContainer = document.createElement('div');
+                weekContainer.className = 'archive-item';
+                
+                let winnerText = weekData.winner ? `🏆 Gewinner: <strong>${weekData.winner.text}</strong> (${weekData.winner.votes} Stimmen)` : 'Keine Stimmen';
+                
+                weekContainer.innerHTML = `
+                    <strong>Woche vom ${weekData.date}:</strong><br>
+                    ${winnerText}
+                `;
+                archiveDiv.appendChild(weekContainer);
+            });
+        }
+
+        function addName() {
+            if (getCookie('beehappy_action_done')) {
+                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                return;
+            }
+
+            const input = document.getElementById('nameInput');
+            if (input.value.trim() !== '') {
+                names.push({ id: Date.now(), text: input.value, votes: 1 });
+                input.value = '';
+                
+                // Einreichen verbraucht die Stimme (Sperre für 7 Tage setzen)
+                setVoteCookie('beehappy_action_done', 'true', 7);
+                saveState();
+                render();
+            }
+        }
+
+        function vote(id) {
+            if (getCookie('beehappy_action_done')) {
+                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                return;
+            }
+
+            const item = names.find(n => n.id === id);
+            if (item) {
+                item.votes++;
+                // Abstimmung verbraucht die Stimme (Sperre für 7 Tage setzen)
+                setVoteCookie('beehappy_action_done', 'true', 7);
+                saveState();
+                render();
+            }
+        }
+
+        function buySuperVote(name) {
+            alert(`Du wirst nun zur Zahlung weitergeleitet, um eine Super-Stimme für "${name}" zu kaufen und die Pflanze zu sichern.`);
+            window.location.href = "https://paypal.me/DEIN_PROJEKTNAME/2"; 
+        }
+
+        // Admin-Panel einblenden / ausblenden mit Passwort
+        function toggleAdminPanel() {
+            const panel = document.getElementById('adminPanel');
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+            } else {
+                const password = prompt("Bitte gib das Admin-Passwort ein:");
+                if (password === ADMIN_PASSWORD) {
+                    panel.style.display = 'block';
+                } else if (password !== null) {
+                    alert("Falsches Passwort!");
+                }
+            }
+        }
+
+        // Wochen-Reset durchführen (Admin)
+        function resetWeeklyVoting() {
+            if (confirm("Möchtest du die aktuelle Woche wirklich beenden? Die Daten werden archiviert und die Liste zurückgesetzt.")) {
+                
+                let winner = null;
+                if (names.length > 0) {
+                    names.sort((a, b) => b.votes - a.votes);
+                    winner = names[0];
+                }
+
+                const today = new Date().toLocaleDateString('de-DE');
+                archive.unshift({
+                    date: today,
+                    winner: winner,
+                    allResults: [...names]
+                });
+
+                // Liste zurücksetzen
+                names = [];
+                
+                // Sperr-Cookie löschen, damit nach dem Wochen-Reset alle wieder 1 Stimme haben
+                deleteCookie('beehappy_action_done');
+
+                saveState();
+                render();
+                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Schüler können nun wieder abstimmen.");
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
+
