@@ -20,6 +20,10 @@
         .archive-item:last-child { border-bottom: none; }
         .admin-panel { display: none; background: #fff3e0; border: 1px solid #ffe0b2; }
     </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -38,7 +42,7 @@
 
     <!-- Aktuelle Liste der Namen -->
     <h2>Aktuelle Abstimmung</h2>
-    <div id="nameList"></div>
+    <div id="nameList">Lade Abstimmung...</div>
 
     <!-- Archiv für alte Wochen -->
     <div class="card" style="margin-top: 30px;">
@@ -59,10 +63,26 @@
     </div>
 
     <script>
-        // PASSWORT FÜR DEN ADMIN-BEREICH
-        const ADMIN_PASSWORD = "Po1ar6aer_ist_kalt!";
+        // Eure Firebase Zugangsdaten
+        const firebaseConfig = {
+            apiKey: "AIzaSyDP1ipt-iW9r0cADFKFXFc502LZlThxJzM",
+            authDomain: "beehappy-abstimmung.firebaseapp.com",
+            databaseURL: "https://beehappy-abstimmung-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "beehappy-abstimmung",
+            storageBucket: "beehappy-abstimmung.firebasestorage.app",
+            messagingSenderId: "555575924691",
+            appId: "1:555575924691:web:6059bedfc504c06e35c126"
+        };
 
-        // Cookie-Hilfsfunktionen für die Stimm-Sperre (7 Tage Speicherung)
+        // Firebase Initialisieren
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const ADMIN_PASSWORD = "beehappy2026";
+
+        let namesData = {};
+        let archiveData = {};
+
         function setVoteCookie(name, value, days) {
             const date = new Date();
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -84,18 +104,15 @@
             document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         }
 
-        // Persistent im Browser gespeicherte Namensliste (bleibt beim Neuladen erhalten!)
-        let names = JSON.parse(localStorage.getItem('beehappy_names')) || [
-            { id: 1, text: "Flori die Blume", votes: 5 },
-            { id: 2, text: "Bee-Gonie", votes: 12 }
-        ];
+        db.ref('names').on('value', snapshot => {
+            namesData = snapshot.val() || {};
+            render();
+        });
 
-        let archive = JSON.parse(localStorage.getItem('beehappy_archive')) || [];
-
-        function saveState() {
-            localStorage.setItem('beehappy_names', JSON.stringify(names));
-            localStorage.setItem('beehappy_archive', JSON.stringify(archive));
-        }
+        db.ref('archive').on('value', snapshot => {
+            archiveData = snapshot.val() || {};
+            renderArchive();
+        });
 
         function render() {
             const list = document.getElementById('nameList');
@@ -116,10 +133,18 @@
 
             list.innerHTML = '';
             
-            // Nach Stimmen sortieren
-            names.sort((a, b) => b.votes - a.votes);
+            let namesArray = [];
+            for (let id in namesData) {
+                namesArray.push({ id: id, ...namesData[id] });
+            }
+            namesArray.sort((a, b) => b.votes - a.votes);
 
-            names.forEach(item => {
+            if (namesArray.length === 0) {
+                list.innerHTML = '<small>Noch keine Namensvorschläge vorhanden.</small>';
+                return;
+            }
+
+            namesArray.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'card item';
                 div.innerHTML = `
@@ -128,7 +153,7 @@
                         <small>Stimmen: ${item.votes}</small>
                     </div>
                     <div>
-                        <button onclick="vote(${item.id})" ${hasVoted ? 'disabled' : ''}>
+                        <button onclick="vote('${item.id}')" ${hasVoted ? 'disabled' : ''}>
                             ${hasVoted ? 'Gestimmt' : '+1 Stimme'}
                         </button>
                         <button class="super" onclick="buySuperVote('${item.text}')">Super-Stimme (€)</button>
@@ -136,19 +161,19 @@
                 `;
                 list.appendChild(div);
             });
-
-            renderArchive();
         }
 
         function renderArchive() {
             const archiveDiv = document.getElementById('archiveList');
-            if (archive.length === 0) {
+            let archiveArray = Object.values(archiveData);
+
+            if (archiveArray.length === 0) {
                 archiveDiv.innerHTML = '<small>Noch keine vergangenen Abstimmungen archiviert.</small>';
                 return;
             }
 
             archiveDiv.innerHTML = '';
-            archive.forEach(weekData => {
+            archiveArray.reverse().forEach(weekData => {
                 const weekContainer = document.createElement('div');
                 weekContainer.className = 'archive-item';
                 
@@ -169,14 +194,13 @@
             }
 
             const input = document.getElementById('nameInput');
-            if (input.value.trim() !== '') {
-                names.push({ id: Date.now(), text: input.value, votes: 1 });
-                input.value = '';
+            const text = input.value.trim();
+            if (text !== '') {
+                const newRef = db.ref('names').push();
+                newRef.set({ text: text, votes: 1 });
                 
-                // Einreichen verbraucht die Stimme (Sperre für 7 Tage setzen)
+                input.value = '';
                 setVoteCookie('beehappy_action_done', 'true', 7);
-                saveState();
-                render();
             }
         }
 
@@ -186,14 +210,10 @@
                 return;
             }
 
-            const item = names.find(n => n.id === id);
-            if (item) {
-                item.votes++;
-                // Abstimmung verbraucht die Stimme (Sperre für 7 Tage setzen)
-                setVoteCookie('beehappy_action_done', 'true', 7);
-                saveState();
-                render();
-            }
+            const currentVotes = namesData[id] ? namesData[id].votes : 0;
+            db.ref('names/' + id + '/votes').set(currentVotes + 1);
+
+            setVoteCookie('beehappy_action_done', 'true', 7);
         }
 
         function buySuperVote(name) {
@@ -201,7 +221,6 @@
             window.location.href = "https://paypal.me/DEIN_PROJEKTNAME/2"; 
         }
 
-        // Admin-Panel einblenden / ausblenden mit Passwort
         function toggleAdminPanel() {
             const panel = document.getElementById('adminPanel');
             if (panel.style.display === 'block') {
@@ -216,37 +235,27 @@
             }
         }
 
-        // Wochen-Reset durchführen (Admin)
         function resetWeeklyVoting() {
             if (confirm("Möchtest du die aktuelle Woche wirklich beenden? Die Daten werden archiviert und die Liste zurückgesetzt.")) {
                 
-                let winner = null;
-                if (names.length > 0) {
-                    names.sort((a, b) => b.votes - a.votes);
-                    winner = names[0];
-                }
+                let namesArray = Object.values(namesData);
+                namesArray.sort((a, b) => b.votes - a.votes);
+                let winner = namesArray.length > 0 ? namesArray[0] : null;
 
                 const today = new Date().toLocaleDateString('de-DE');
-                archive.unshift({
+                
+                db.ref('archive').push({
                     date: today,
                     winner: winner,
-                    allResults: [...names]
+                    allResults: namesData
                 });
 
-                // Liste zurücksetzen
-                names = [];
-                
-                // Sperr-Cookie löschen, damit nach dem Wochen-Reset alle wieder 1 Stimme haben
+                db.ref('names').remove();
                 deleteCookie('beehappy_action_done');
 
-                saveState();
-                render();
-                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Schüler können nun wieder abstimmen.");
+                alert("Die Woche wurde erfolgreich zurückgesetzt.");
             }
         }
-
-        render();
     </script>
 </body>
 </html>
-
