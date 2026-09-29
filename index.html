@@ -24,20 +24,23 @@
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <!-- FingerprintJS SDK -->
+    <script src="https://openfpcdn.io/fingerprintjs/v3"></script>
 </head>
 <body>
 
     <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
 
     <div id="statusMessage" class="info-msg">
-        Wähle deinen Lieblingsnamen oder reiche einen eigenen Vorschlag ein!
+        Lade System & Abstimmung...
     </div>
 
     <!-- Vorschlag einreichen -->
     <div class="card">
         <h3>Neuen Namen vorschlagen</h3>
         <input type="text" id="nameInput" placeholder="Pflanzenname eingeben...">
-        <button id="addBtn" onclick="addName()">Hinzufügen</button>
+        <button id="addBtn" onclick="addName()" disabled>Hinzufügen</button>
     </div>
 
     <!-- Aktuelle Liste der Namen -->
@@ -81,46 +84,23 @@
         let namesData = {};
         let archiveData = {};
         let votersData = {};
+        let currentDeviceId = null;
 
-        // --- Device-ID Logik ---
-        function getDeviceId() {
-            let deviceId = localStorage.getItem('beehappy_device_id');
-            if (!deviceId) {
-                deviceId = getCookie('beehappy_device_id');
-            }
-            if (!deviceId) {
-                deviceId = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-            }
-            localStorage.setItem('beehappy_device_id', deviceId);
-            setCookie('beehappy_device_id', deviceId, 365);
-            return deviceId;
-        }
-
-        const currentDeviceId = getDeviceId();
-
-        function setCookie(name, value, days) {
-            const date = new Date();
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-            document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + date.toUTCString() + "; path=/";
-        }
-
-        function getCookie(name) {
-            const nameEQ = name + "=";
-            const ca = document.cookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
-            }
-            return null;
-        }
+        // --- FingerprintJS initialisieren ---
+        FingerprintJS.load().then(fp => fp.get()).then(result => {
+            currentDeviceId = result.visitorId;
+            render();
+        }).catch(error => {
+            console.error("Fingerprint Fehler:", error);
+            // Fallback falls Fingerprint geblockt wird
+            currentDeviceId = 'fallback_' + Math.random().toString(36).substr(2, 9);
+            render();
+        });
 
         // Live-Synchronisation mit Firebase
         db.ref('names').on('value', snapshot => {
             namesData = snapshot.val() || {};
             render();
-        }, error => {
-            console.error("Firebase Fehler:", error);
         });
 
         db.ref('voters').on('value', snapshot => {
@@ -134,18 +114,27 @@
         });
 
         function hasUserVoted() {
+            if (!currentDeviceId) return true; // Deaktivieren, solange der Fingerabdruck geladen wird
             return votersData[currentDeviceId] === true;
         }
 
         function render() {
             const list = document.getElementById('nameList');
-            const userHasVoted = hasUserVoted();
             const statusMsg = document.getElementById('statusMessage');
             const addBtn = document.getElementById('addBtn');
             const nameInput = document.getElementById('nameInput');
 
+            if (!currentDeviceId) {
+                statusMsg.innerHTML = "Lade Gerätedaten...";
+                addBtn.disabled = true;
+                nameInput.disabled = true;
+                return;
+            }
+
+            const userHasVoted = hasUserVoted();
+
             if (userHasVoted) {
-                statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
+                statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast von diesem Gerät bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
                 addBtn.disabled = true;
                 nameInput.disabled = true;
             } else {
@@ -212,7 +201,7 @@
 
         function addName() {
             if (hasUserVoted()) {
-                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
 
@@ -231,11 +220,11 @@
                 return;
             }
 
-            // In Firebase als Name abspeichern
+            // In Firebase speichern
             const newRef = db.ref('names').push();
             newRef.set({ text: text, votes: 1 });
 
-            // Device-ID in Firebase als registrierter Wähler eintragen
+            // Fingerabdruck in Firebase als abgestimmt eintragen
             db.ref('voters/' + currentDeviceId).set(true);
 
             input.value = '';
@@ -243,14 +232,14 @@
 
         function vote(id) {
             if (hasUserVoted()) {
-                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
 
             const currentVotes = namesData[id] ? namesData[id].votes : 0;
             db.ref('names/' + id + '/votes').set(currentVotes + 1);
 
-            // Device-ID in Firebase als registrierter Wähler eintragen
+            // Fingerabdruck in Firebase als abgestimmt eintragen
             db.ref('voters/' + currentDeviceId).set(true);
         }
 
@@ -291,11 +280,11 @@
                     allResults: namesData
                 });
 
-                // Alle Namensvorschläge UND registrierten Wähler-IDs für die neue Woche zurücksetzen
+                // Alle Namensvorschläge UND gespeicherte Geräte-Fingerabdrücke löschen
                 db.ref('names').remove();
                 db.ref('voters').remove();
 
-                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können für die neue Woche wieder abstimmen!");
+                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können für die neue Woche wieder einmalig abstimmen!");
             }
         }
     </script>
