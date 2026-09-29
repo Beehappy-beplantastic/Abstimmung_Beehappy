@@ -25,22 +25,22 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-    <!-- FingerprintJS SDK -->
-    <script src="https://openfpcdn.io/fingerprintjs/v3"></script>
+    <!-- FingerprintJS IIFE SDK -->
+    <script src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
 </head>
 <body>
 
     <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
 
     <div id="statusMessage" class="info-msg">
-        Lade System & Abstimmung...
+        Lade Abstimmung...
     </div>
 
     <!-- Vorschlag einreichen -->
     <div class="card">
         <h3>Neuen Namen vorschlagen</h3>
         <input type="text" id="nameInput" placeholder="Pflanzenname eingeben...">
-        <button id="addBtn" onclick="addName()" disabled>Hinzufügen</button>
+        <button id="addBtn" onclick="addName()">Hinzufügen</button>
     </div>
 
     <!-- Aktuelle Liste der Namen -->
@@ -86,16 +86,54 @@
         let votersData = {};
         let currentDeviceId = null;
 
-        // --- FingerprintJS initialisieren ---
-        FingerprintJS.load().then(fp => fp.get()).then(result => {
-            currentDeviceId = result.visitorId;
-            render();
-        }).catch(error => {
-            console.error("Fingerprint Fehler:", error);
-            // Fallback falls Fingerprint geblockt wird
-            currentDeviceId = 'fallback_' + Math.random().toString(36).substr(2, 9);
-            render();
-        });
+        // Hilfsfunktionen für Cookies & Storage
+        function setCookie(name, value, days) {
+            const date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + date.toUTCString() + "; path=/";
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+            }
+            return null;
+        }
+
+        function getFallbackDeviceId() {
+            let id = localStorage.getItem('beehappy_device_id') || getCookie('beehappy_device_id');
+            if (!id) {
+                id = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            }
+            localStorage.setItem('beehappy_device_id', id);
+            setCookie('beehappy_device_id', id, 365);
+            return id;
+        }
+
+        // Device-ID mit FingerprintJS ermitteln
+        function initDeviceId() {
+            if (window.FingerprintJS) {
+                FingerprintJS.load()
+                    .then(fp => fp.get())
+                    .then(result => {
+                        // Sonderzeichen für Firebase bereinigen
+                        currentDeviceId = 'fp_' + result.visitorId.replace(/[\.\#\$\/\[\]]/g, "_");
+                        render();
+                    })
+                    .catch(err => {
+                        console.warn("FingerprintJS Fehler, verwende Fallback:", err);
+                        currentDeviceId = getFallbackDeviceId();
+                        render();
+                    });
+            } else {
+                currentDeviceId = getFallbackDeviceId();
+                render();
+            }
+        }
 
         // Live-Synchronisation mit Firebase
         db.ref('names').on('value', snapshot => {
@@ -114,7 +152,7 @@
         });
 
         function hasUserVoted() {
-            if (!currentDeviceId) return true; // Deaktivieren, solange der Fingerabdruck geladen wird
+            if (!currentDeviceId) return false;
             return votersData[currentDeviceId] === true;
         }
 
@@ -125,7 +163,7 @@
             const nameInput = document.getElementById('nameInput');
 
             if (!currentDeviceId) {
-                statusMsg.innerHTML = "Lade Gerätedaten...";
+                statusMsg.innerHTML = "Lade Gerät... Bitte einen Moment gedulden.";
                 addBtn.disabled = true;
                 nameInput.disabled = true;
                 return;
@@ -224,7 +262,7 @@
             const newRef = db.ref('names').push();
             newRef.set({ text: text, votes: 1 });
 
-            // Fingerabdruck in Firebase als abgestimmt eintragen
+            // Gerätekennung in Firebase als abgestimmt eintragen
             db.ref('voters/' + currentDeviceId).set(true);
 
             input.value = '';
@@ -239,7 +277,7 @@
             const currentVotes = namesData[id] ? namesData[id].votes : 0;
             db.ref('names/' + id + '/votes').set(currentVotes + 1);
 
-            // Fingerabdruck in Firebase als abgestimmt eintragen
+            // Gerätekennung in Firebase als abgestimmt eintragen
             db.ref('voters/' + currentDeviceId).set(true);
         }
 
@@ -280,13 +318,18 @@
                     allResults: namesData
                 });
 
-                // Alle Namensvorschläge UND gespeicherte Geräte-Fingerabdrücke löschen
+                // Alle Namensvorschläge UND gespeicherte Geräte-IDs löschen
                 db.ref('names').remove();
                 db.ref('voters').remove();
 
-                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können für die neue Woche wieder einmalig abstimmen!");
+                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können wieder abstimmen!");
             }
         }
+
+        // Starten sobald die Seite geladen ist
+        window.addEventListener('DOMContentLoaded', () => {
+            initDeviceId();
+        });
     </script>
 </body>
 </html>
