@@ -80,8 +80,25 @@
 
         let namesData = {};
         let archiveData = {};
+        let votersData = {};
 
-        function setVoteCookie(name, value, days) {
+        // --- Device-ID Logik ---
+        function getDeviceId() {
+            let deviceId = localStorage.getItem('beehappy_device_id');
+            if (!deviceId) {
+                deviceId = getCookie('beehappy_device_id');
+            }
+            if (!deviceId) {
+                deviceId = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            }
+            localStorage.setItem('beehappy_device_id', deviceId);
+            setCookie('beehappy_device_id', deviceId, 365);
+            return deviceId;
+        }
+
+        const currentDeviceId = getDeviceId();
+
+        function setCookie(name, value, days) {
             const date = new Date();
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
             document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + date.toUTCString() + "; path=/";
@@ -98,10 +115,7 @@
             return null;
         }
 
-        function deleteCookie(name) {
-            document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        }
-
+        // Live-Synchronisation mit Firebase
         db.ref('names').on('value', snapshot => {
             namesData = snapshot.val() || {};
             render();
@@ -109,19 +123,28 @@
             console.error("Firebase Fehler:", error);
         });
 
+        db.ref('voters').on('value', snapshot => {
+            votersData = snapshot.val() || {};
+            render();
+        });
+
         db.ref('archive').on('value', snapshot => {
             archiveData = snapshot.val() || {};
             renderArchive();
         });
 
+        function hasUserVoted() {
+            return votersData[currentDeviceId] === true;
+        }
+
         function render() {
             const list = document.getElementById('nameList');
-            const hasVoted = getCookie('beehappy_action_done') !== null;
+            const userHasVoted = hasUserVoted();
             const statusMsg = document.getElementById('statusMessage');
             const addBtn = document.getElementById('addBtn');
             const nameInput = document.getElementById('nameInput');
 
-            if (hasVoted) {
+            if (userHasVoted) {
                 statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
                 addBtn.disabled = true;
                 nameInput.disabled = true;
@@ -153,8 +176,8 @@
                         <small>Stimmen: ${item.votes}</small>
                     </div>
                     <div>
-                        <button onclick="vote('${item.id}')" ${hasVoted ? 'disabled' : ''}>
-                            ${hasVoted ? 'Gestimmt' : '+1 Stimme'}
+                        <button onclick="vote('${item.id}')" ${userHasVoted ? 'disabled' : ''}>
+                            ${userHasVoted ? 'Gestimmt' : '+1 Stimme'}
                         </button>
                         <button class="super" onclick="buySuperVote('${item.text}')">Super-Stimme (€)</button>
                     </div>
@@ -188,7 +211,7 @@
         }
 
         function addName() {
-            if (getCookie('beehappy_action_done')) {
+            if (hasUserVoted()) {
                 alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
@@ -201,26 +224,25 @@
                 return;
             }
 
-            // Prüfung auf doppelte Namen (Groß-/Kleinschreibung wird ignoriert)
+            // Prüfung auf doppelte Namen (Groß-/Kleinschreibung ignorieren)
             const exists = Object.values(namesData).some(item => item.text.toLowerCase() === text.toLowerCase());
             if (exists) {
                 alert("Dieser Pflanzenname wurde bereits vorgeschlagen! Bitte wähle einen anderen Namen oder stimme für den bestehenden ab.");
                 return;
             }
 
-            // Speichern in Firebase
+            // In Firebase als Name abspeichern
             const newRef = db.ref('names').push();
             newRef.set({ text: text, votes: 1 });
-            
+
+            // Device-ID in Firebase als registrierter Wähler eintragen
+            db.ref('voters/' + currentDeviceId).set(true);
+
             input.value = '';
-            
-            // Cookie setzen & Ansicht sofort sperren
-            setVoteCookie('beehappy_action_done', 'true', 7);
-            render();
         }
 
         function vote(id) {
-            if (getCookie('beehappy_action_done')) {
+            if (hasUserVoted()) {
                 alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
@@ -228,9 +250,8 @@
             const currentVotes = namesData[id] ? namesData[id].votes : 0;
             db.ref('names/' + id + '/votes').set(currentVotes + 1);
 
-            // Cookie setzen & Ansicht sofort sperren
-            setVoteCookie('beehappy_action_done', 'true', 7);
-            render();
+            // Device-ID in Firebase als registrierter Wähler eintragen
+            db.ref('voters/' + currentDeviceId).set(true);
         }
 
         function buySuperVote(name) {
@@ -256,7 +277,7 @@
         }
 
         function resetWeeklyVoting() {
-            if (confirm("Möchtest du die aktuelle Woche wirklich beenden? Die Daten werden archiviert und die Liste zurückgesetzt.")) {
+            if (confirm("Möchtest du die aktuelle Woche wirklich beenden? Die Daten werden archiviert und alle Abstimmungen/Sperren zurückgesetzt.")) {
                 
                 let namesArray = Object.values(namesData);
                 namesArray.sort((a, b) => b.votes - a.votes);
@@ -270,13 +291,11 @@
                     allResults: namesData
                 });
 
+                // Alle Namensvorschläge UND registrierten Wähler-IDs für die neue Woche zurücksetzen
                 db.ref('names').remove();
-                
-                // Admin-Cookie löschen
-                deleteCookie('beehappy_action_done');
+                db.ref('voters').remove();
 
-                alert("Die Woche wurde erfolgreich zurückgesetzt.");
-                render();
+                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können für die neue Woche wieder abstimmen!");
             }
         }
     </script>
