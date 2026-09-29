@@ -195,14 +195,28 @@
 
             const input = document.getElementById('nameInput');
             const text = input.value.trim();
-            if (text !== '') {
-                const newRef = db.ref('names').push();
-                newRef.set({ text: text, votes: 1 });
-                
-                input.value = '';
-                setVoteCookie('beehappy_action_done', 'true', 7);
-                render();
+
+            if (text === '') {
+                alert("Bitte gib einen Namen ein.");
+                return;
             }
+
+            // Prüfung auf doppelte Namen (Groß-/Kleinschreibung wird ignoriert)
+            const exists = Object.values(namesData).some(item => item.text.toLowerCase() === text.toLowerCase());
+            if (exists) {
+                alert("Dieser Pflanzenname wurde bereits vorgeschlagen! Bitte wähle einen anderen Namen oder stimme für den bestehenden ab.");
+                return;
+            }
+
+            // Speichern in Firebase
+            const newRef = db.ref('names').push();
+            newRef.set({ text: text, votes: 1 });
+            
+            input.value = '';
+            
+            // Cookie setzen & Ansicht sofort sperren
+            setVoteCookie('beehappy_action_done', 'true', 7);
+            render();
         }
 
         function vote(id) {
@@ -214,6 +228,7 @@
             const currentVotes = namesData[id] ? namesData[id].votes : 0;
             db.ref('names/' + id + '/votes').set(currentVotes + 1);
 
+            // Cookie setzen & Ansicht sofort sperren
             setVoteCookie('beehappy_action_done', 'true', 7);
             render();
         }
@@ -257,10 +272,10 @@
 
                 db.ref('names').remove();
                 
-                // Eigenes Cookie sofort löschen
+                // Admin-Cookie löschen
                 deleteCookie('beehappy_action_done');
 
-                alert("Die Woche wurde erfolgreich zurückgesetzt. Du kannst nun wieder eine neue Abstimmung starten!");
+                alert("Die Woche wurde erfolgreich zurückgesetzt.");
                 render();
             }
         }
