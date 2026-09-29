@@ -86,7 +86,6 @@
         let votersData = {};
         let currentDeviceId = null;
 
-        // Hilfsfunktionen für Cookies & Storage
         function setCookie(name, value, days) {
             const date = new Date();
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -114,24 +113,45 @@
             return id;
         }
 
-        // Device-ID mit FingerprintJS ermitteln
+        // Device-ID ermitteln (mit Timeout-Fallback)
         function initDeviceId() {
+            let isLoaded = false;
+
+            // Timeout nach 1 Sekunde, falls FingerprintJS blockiert wird oder hängt
+            const timeout = setTimeout(() => {
+                if (!isLoaded) {
+                    isLoaded = true;
+                    currentDeviceId = getFallbackDeviceId();
+                    render();
+                }
+            }, 1000);
+
             if (window.FingerprintJS) {
                 FingerprintJS.load()
                     .then(fp => fp.get())
                     .then(result => {
-                        // Sonderzeichen für Firebase bereinigen
-                        currentDeviceId = 'fp_' + result.visitorId.replace(/[\.\#\$\/\[\]]/g, "_");
-                        render();
+                        if (!isLoaded) {
+                            isLoaded = true;
+                            clearTimeout(timeout);
+                            currentDeviceId = 'fp_' + result.visitorId.replace(/[\.\#\$\/\[\]]/g, "_");
+                            render();
+                        }
                     })
                     .catch(err => {
-                        console.warn("FingerprintJS Fehler, verwende Fallback:", err);
-                        currentDeviceId = getFallbackDeviceId();
-                        render();
+                        if (!isLoaded) {
+                            isLoaded = true;
+                            clearTimeout(timeout);
+                            currentDeviceId = getFallbackDeviceId();
+                            render();
+                        }
                     });
             } else {
-                currentDeviceId = getFallbackDeviceId();
-                render();
+                if (!isLoaded) {
+                    isLoaded = true;
+                    clearTimeout(timeout);
+                    currentDeviceId = getFallbackDeviceId();
+                    render();
+                }
             }
         }
 
@@ -262,7 +282,7 @@
             const newRef = db.ref('names').push();
             newRef.set({ text: text, votes: 1 });
 
-            // Gerätekennung in Firebase als abgestimmt eintragen
+            // Gerätekennung in Firebase eintragen
             db.ref('voters/' + currentDeviceId).set(true);
 
             input.value = '';
@@ -277,7 +297,7 @@
             const currentVotes = namesData[id] ? namesData[id].votes : 0;
             db.ref('names/' + id + '/votes').set(currentVotes + 1);
 
-            // Gerätekennung in Firebase als abgestimmt eintragen
+            // Gerätekennung in Firebase eintragen
             db.ref('voters/' + currentDeviceId).set(true);
         }
 
@@ -326,10 +346,8 @@
             }
         }
 
-        // Starten sobald die Seite geladen ist
-        window.addEventListener('DOMContentLoaded', () => {
-            initDeviceId();
-        });
+        // Beim ersten Laden Device-ID ermitteln
+        initDeviceId();
     </script>
 </body>
 </html>
