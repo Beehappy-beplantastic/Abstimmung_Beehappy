@@ -90,7 +90,7 @@
         }
     </style>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs (inklusive Authentication) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -101,7 +101,6 @@
 <body>
 
     <div class="header-container">
-        <!-- Achte darauf, dass die Datei bee-logo.jpeg im selben Ordner auf GitHub liegt -->
         <img src="bee-logo.jpeg" alt="Beehappy Logo" class="logo-img" id="headerLogo">
         <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
     </div>
@@ -330,7 +329,7 @@
 
         function addName() {
             if (hasUserVoted()) {
-                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
 
@@ -358,7 +357,7 @@
 
         function vote(id) {
             if (hasUserVoted()) {
-                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
 
@@ -373,7 +372,7 @@
             window.location.href = "https://paypal.me/DEIN_PROJEKTNAME/2"; 
         }
 
-        // Admin-Panel öffnen und authentifizieren
+        // Firebase-Authentifizierung für den Admin-Bereich
         async function toggleAdminPanel() {
             const panel = document.getElementById('adminPanel');
             
@@ -382,11 +381,13 @@
                 return;
             }
 
+            // Falls bereits eingeloggt, Panel anzeigen
             if (auth.currentUser) {
                 panel.style.display = 'block';
                 return;
             }
 
+            // Ansonsten Anmeldedaten abfragen
             const email = prompt("Bitte Admin E-Mail eingeben:");
             if (!email) return;
 
@@ -402,7 +403,7 @@
             }
         }
 
-        // Abstimmung beenden & archivieren mit Fehlerbehandlung
+        // Zurücksetzen mit abgesichertem Firebase-Schreibzugriff
         async function resetWeeklyVoting() {
             if (!auth.currentUser) {
                 alert("Du musst als Admin angemeldet sein, um diese Aktion auszuführen!");
@@ -417,16 +418,18 @@
 
                     const today = new Date().toLocaleDateString('de-DE');
                     
+                    // Ins Archiv schreiben
                     await db.ref('archive').push({
                         date: today,
                         winner: winner,
                         allResults: namesData
                     });
 
+                    // Aktuelle Runde löschen
                     await db.ref('names').remove();
                     await db.ref('voters').remove();
 
-                    alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Personen können wieder abstimmen!");
+                    alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können wieder abstimmen!");
                 } catch (error) {
                     alert("Fehler beim Zurücksetzen: " + error.message);
                 }
