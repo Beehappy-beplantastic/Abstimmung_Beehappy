@@ -4,35 +4,337 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beehappy - Pflanzen-Abstimmung</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; background: #f4f9f4; color: #333; }
-        h1, h2 { color: #2e7d32; text-align: center; }
-        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .item { display: flex; justify-content: space-between; align-items: center; }
-        button { background: #4caf50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        button.super { background: #ff9800; margin-left: 5px; }
-        button.admin-btn { background: #555; color: white; margin-top: 10px; width: 100%; }
-        button.reset-btn { background: #d32f2f; color: white; margin-top: 10px; width: 100%; }
-        input[type="text"] { width: 65%; padding: 8px; }
-        .info-msg { padding: 10px; background: #e8f5e9; border-left: 4px solid #2e7d32; margin-bottom: 15px; }
-        .archive-item { border-bottom: 1px solid #eee; padding: 8px 0; }
-        .archive-item:last-child { border-bottom: none; }
-        .admin-panel { display: none; background: #fff3e0; border: 1px solid #ffe0b2; }
-    </style>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <!-- SCHRITT 3: Firebase Authentication SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <!-- FingerprintJS IIFE SDK -->
     <script src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #FAF7F2;
+            --primary-green: #2A4B29;
+            --accent-green: #388E3C;
+            --super-yellow: #FFA000;
+            --super-yellow-hover: #F57C00;
+            --text-color: #2C3E50;
+            --card-bg: #FFFFFF;
+            --border-color: #E2E8F0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body { 
+            font-family: 'Nunito', sans-serif; 
+            max-width: 650px; 
+            margin: 0 auto; 
+            padding: 15px; 
+            background: var(--bg-color); 
+            color: var(--text-color); 
+        }
+
+        h1, h2, h3 { 
+            font-family: 'Quicksand', sans-serif;
+            color: var(--primary-green); 
+            text-align: center; 
+        }
+
+        /* Navigationsleiste & Header */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-btn {
+            background: var(--card-bg);
+            color: var(--primary-green);
+            border: 2px solid var(--primary-green);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-family: 'Quicksand', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            left: 0;
+            top: 110%;
+            background-color: var(--card-bg);
+            min-width: 180px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            z-index: 100;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .dropdown-content a {
+            color: var(--text-color);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #F0F4F1;
+            color: var(--primary-green);
+        }
+
+        .dropdown:hover .dropdown-content, .dropdown:focus-within .dropdown-content {
+            display: block;
+        }
+
+        .abi-donate-btn {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+            color: white;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 20px;
+            font-family: 'Quicksand', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 3px 6px rgba(245, 124, 0, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .abi-donate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(245, 124, 0, 0.4);
+        }
+
+        /* Logo Header */
+        .header-card {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo-img {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 4px 12px rgba(42, 75, 41, 0.15);
+            border: 3px solid var(--primary-green);
+            margin-bottom: 10px;
+        }
+
+        /* Karten & UI Elements */
+        .card { 
+            background: var(--card-bg); 
+            padding: 18px; 
+            margin: 15px 0; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04); 
+            border: 1px solid rgba(42, 75, 41, 0.08);
+        }
+
+        .item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            gap: 10px;
+        }
+
+        button { 
+            background: var(--accent-green); 
+            color: white; 
+            border: none; 
+            padding: 9px 14px; 
+            border-radius: 10px; 
+            font-family: 'Quicksand', sans-serif;
+            font-weight: 600;
+            cursor: pointer; 
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        button:disabled { 
+            background: #BDC3C7; 
+            cursor: not-allowed; 
+        }
+
+        button.super { 
+            background: var(--super-yellow); 
+            color: #2C3E50;
+            font-weight: 700;
+            margin-left: 5px; 
+        }
+
+        button.super:hover:not(:disabled) {
+            background: var(--super-yellow-hover);
+            color: white;
+        }
+
+        /* Dezent gestalteter Admin-Knopf ganz unten */
+        .admin-footer {
+            margin-top: 50px;
+            text-align: center;
+            opacity: 0.3;
+            transition: opacity 0.3s;
+        }
+
+        .admin-footer:hover {
+            opacity: 1;
+        }
+
+        button.admin-btn-subtle { 
+            background: transparent; 
+            color: #7F8C8D; 
+            border: none; 
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        button.reset-btn { 
+            background: #E74C3C; 
+            color: white; 
+            margin-top: 15px; 
+            width: 100%; 
+        }
+
+        input[type="text"] { 
+            width: 65%; 
+            padding: 10px 12px; 
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-green);
+        }
+
+        .info-msg { 
+            padding: 12px 16px; 
+            background: #E8F5E9; 
+            border-left: 5px solid var(--primary-green); 
+            border-radius: 8px;
+            margin-bottom: 20px; 
+            font-size: 0.95rem;
+        }
+
+        .archive-item { 
+            border-bottom: 1px solid var(--border-color); 
+            padding: 10px 0; 
+        }
+
+        .archive-item:last-child { 
+            border-bottom: none; 
+        }
+
+        .admin-panel { 
+            display: none; 
+            background: #FFF8E1; 
+            border: 1px solid #FFE082; 
+        }
+
+        /* Modal Popups für Regelsystem/Impressum/Info */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #7F8C8D;
+        }
+
+        /* Responsive Anpassungen für Mobilgeräte */
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .item { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .item > div:last-child { width: 100%; display: flex; justify-content: flex-end; }
+            input[type="text"] { width: 100%; margin-bottom: 10px; }
+            .card div { width: 100%; }
+            #addBtn { width: 100%; }
+        }
+    </style>
 </head>
 <body>
 
-    <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
+    <!-- Top Navigation Bar -->
+    <div class="top-bar">
+        <div class="dropdown">
+            <button class="dropdown-btn">☰ Menü ▾</button>
+            <div class="dropdown-content">
+                <a href="#" onclick="openModal('rulesModal')">📜 Regeln</a>
+                <a href="#" onclick="openModal('aboutModal')">🐝 Über das Projekt</a>
+                <a href="#" onclick="openModal('impressumModal')">⚖️ Impressum</a>
+            </div>
+        </div>
+
+        <a href="https://paypal.me/DEIN_PROJEKTNAME/5" target="_blank" class="abi-donate-btn">
+            🎓 Abi Spenden
+        </a>
+    </div>
+
+    <!-- Header mit Logo -->
+    <div class="header-card">
+        <img src="WhatsApp Image 2026-10-07 at 11.22.29.jpg" alt="Beehappy Logo" class="logo-img">
+        <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
+    </div>
 
     <div id="statusMessage" class="info-msg">
         Lade Abstimmung...
@@ -40,30 +342,61 @@
 
     <!-- Vorschlag einreichen -->
     <div class="card">
-        <h3>Neuen Namen vorschlagen</h3>
-        <input type="text" id="nameInput" placeholder="Pflanzenname eingeben (max. 30 Zeichen)..." maxlength="30">
-        <button id="addBtn" onclick="addName()">Hinzufügen</button>
+        <h3 style="text-align: left; margin-bottom: 10px;">Neuen Namen vorschlagen</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="text" id="nameInput" placeholder="Pflanzenname eingeben (max. 30 Zeichen)..." maxlength="30">
+            <button id="addBtn" onclick="addName()">Hinzufügen</button>
+        </div>
     </div>
 
     <!-- Aktuelle Liste der Namen -->
-    <h2>Aktuelle Abstimmung</h2>
+    <h2 style="margin-top: 30px; margin-bottom: 10px;">Aktuelle Abstimmung</h2>
     <div id="nameList">Lade Abstimmung...</div>
 
     <!-- Archiv für alte Wochen -->
     <div class="card" style="margin-top: 30px;">
         <h2>📜 Archiv vergangener Wochen</h2>
-        <div id="archiveList">
+        <div id="archiveList" style="margin-top: 10px;">
             <small>Noch keine vergangenen Abstimmungen archiviert.</small>
         </div>
     </div>
 
-    <!-- Versteckter Admin-Bereich -->
-    <div style="margin-top: 40px;">
-        <button class="admin-btn" onclick="toggleAdminPanel()">⚙️ Admin-Bereich (Lehrer / Orga)</button>
+    <!-- Dezent versteckter Admin-Bereich ganz unten -->
+    <div class="admin-footer">
+        <button class="admin-btn-subtle" onclick="toggleAdminPanel()">System-Verwaltung</button>
         <div id="adminPanel" class="card admin-panel">
             <h3>Admin-Steuerung</h3>
             <p><small>Hier kannst du die Abstimmung beenden und das Ergebnis archivieren.</small></p>
             <button class="reset-btn" onclick="resetWeeklyVoting()">Woche beenden & Ergebnisse archivieren</button>
+        </div>
+    </div>
+
+    <!-- MODALS (INFO FENSTER) -->
+    <div id="rulesModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('rulesModal')">&times;</span>
+            <h3 style="margin-bottom: 15px;">📜 Abstimmungsregeln</h3>
+            <p>1. Jedes Gerät / jede Person hat <strong>1 freie Aktion</strong> pro Runde (entweder 1 Namen vorschlagen ODER 1 Stimme abgeben).</p><br>
+            <p>2. Namensvorschläge sind auf <strong>30 Zeichen</strong> begrenzt.</p><br>
+            <p>3. Über <strong>Super-Stimmen</strong> kann ein Favorit unbegrenzt weiter unterstützt werden.</p>
+        </div>
+    </div>
+
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('aboutModal')">&times;</span>
+            <h3 style="margin-bottom: 15px;">🐝 Über Beehappy</h3>
+            <p>Unser Projekt kombiniert Umweltschutz und Schulgemeinschaft. Wir pflanzen gemeinsam blühende Lebensräume für Bienen und Insekten und lassen euch entscheiden, wie unsere Schützlinge heißen sollen!</p>
+        </div>
+    </div>
+
+    <div id="impressumModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('impressumModal')">&times;</span>
+            <h3 style="margin-bottom: 15px;">⚖️ Impressum</h3>
+            <p><strong>Beehappy Schulprojekt</strong></p>
+            <p>Verantwortlich für den Inhalt: Die Organisation / SV der Schule.</p>
+            <p>Kontakt: beehappy@deine-schule.de</p>
         </div>
     </div>
 
@@ -80,14 +413,22 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-        
-        // SCHRITT 4: Firebase Auth Initialisierung
         const auth = firebase.auth();
 
         let namesData = {};
         let archiveData = {};
         let votersData = {};
         let currentDeviceId = null;
+
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // Modal schliessen bei Klick ausserhalb
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = "none";
+            }
+        }
 
         function setCookie(name, value, days) {
             const date = new Date();
@@ -116,10 +457,8 @@
             return id;
         }
 
-        // Device-ID ermitteln (mit Timeout-Fallback)
         function initDeviceId() {
             let isLoaded = false;
-
             const timeout = setTimeout(() => {
                 if (!isLoaded) {
                     isLoaded = true;
@@ -157,7 +496,6 @@
             }
         }
 
-        // Live-Synchronisation mit Firebase
         db.ref('names').on('value', snapshot => {
             namesData = snapshot.val() || {};
             render();
@@ -221,14 +559,14 @@
                 div.className = 'card item';
                 div.innerHTML = `
                     <div>
-                        <strong>${item.text}</strong><br>
-                        <small>Stimmen: ${item.votes}</small>
+                        <strong style="font-size: 1.1rem;">${item.text}</strong><br>
+                        <small style="color: #7F8C8D;">Stimmen: ${item.votes}</small>
                     </div>
                     <div>
                         <button onclick="vote('${item.id}')" ${userHasVoted ? 'disabled' : ''}>
                             ${userHasVoted ? 'Gestimmt' : '+1 Stimme'}
                         </button>
-                        <button class="super" onclick="buySuperVote('${item.text}')">Super-Stimme (€)</button>
+                        <button class="super" onclick="buySuperVote('${item.text}')">Super-Stimme ⭐</button>
                     </div>
                 `;
                 list.appendChild(div);
@@ -304,7 +642,6 @@
             window.location.href = "https://paypal.me/DEIN_PROJEKTNAME/2"; 
         }
 
-        // SCHRITT 4: Angepasste Admin-Anmeldung über Firebase Authentication
         async function toggleAdminPanel() {
             const panel = document.getElementById('adminPanel');
             
@@ -333,7 +670,6 @@
             }
         }
 
-        // SCHRITT 4: Rücksetzen prüft den Admin-Status
         function resetWeeklyVoting() {
             if (!auth.currentUser) {
                 alert("Du musst als Admin angemeldet sein, um diese Aktion auszuführen!");
@@ -360,7 +696,6 @@
             }
         }
 
-        // Beim ersten Laden Device-ID ermitteln
         initDeviceId();
     </script>
 </body>
