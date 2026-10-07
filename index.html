@@ -756,23 +756,11 @@
             }
         }
 
-        function superVote(id) {
+       function superVote(id) {
             alert("Weiterleitung zu PayPal für eine Super-Stimme...");
         }
 
-       }
-        <div class="modal" id="modalAdmin">
-    <div class="modal-content">
-        <button class="close-modal" onclick="closeModal('modalAdmin')">&times;</button>
-        <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Admin-Bereich</h3>
-        <p>Willkommen im Administrations-Bereich!</p>
-        <br>
-        <!-- Hier kannst du deine Admin-Funktionen oder Buttons platzieren -->
-        <p>Hier kannst du Vorschläge verwalten oder das Wöchentliche Voting zurücksetzen.</p>
-    </div>
-</div>
-        
- function openAdminPrompt() {
+        function openAdminPrompt() {
             const pass = prompt("Bitte Administrator-Passwort eingeben:");
             if (pass === "deinPasswort123") { // Passe hier dein Passwort an
                 openModal('modalAdmin');
@@ -783,5 +771,18 @@
 
         renderNameList();
     </script>
+
+    <!-- Das Modal gehört AUSSERHALB von <script> hin -->
+    <div class="modal" id="modalAdmin">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('modalAdmin')">&times;</button>
+            <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Admin-Bereich</h3>
+            <p>Willkommen im Administrations-Bereich!</p>
+            <br>
+            <!-- Hier kannst du deine Admin-Funktionen oder Buttons platzieren -->
+            <p>Hier kannst du Vorschläge verwalten oder das Wöchentliche Voting zurücksetzen.</p>
+        </div>
+    </div>
+
 </body>
 </html>
