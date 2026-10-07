@@ -760,14 +760,7 @@
             alert("Weiterleitung zu PayPal für eine Super-Stimme...");
         }
 
-        function openAdminPrompt() {
-    const pass = prompt("Bitte Administrator-Passwort eingeben:");
-    if (pass === "deinPasswort123") { // Passe hier dein Passwort an
-        openModal('modalAdmin');
-    } else if (pass !== null) {
-        alert("Falsches Passwort!");
-    }
-}
+       }
         <div class="modal" id="modalAdmin">
     <div class="modal-content">
         <button class="close-modal" onclick="closeModal('modalAdmin')">&times;</button>
@@ -778,6 +771,15 @@
         <p>Hier kannst du Vorschläge verwalten oder das Wöchentliche Voting zurücksetzen.</p>
     </div>
 </div>
+        
+ function openAdminPrompt() {
+            const pass = prompt("Bitte Administrator-Passwort eingeben:");
+            if (pass === "deinPasswort123") { // Passe hier dein Passwort an
+                openModal('modalAdmin');
+            } else if (pass !== null) {
+                alert("Falsches Passwort!");
+            }
+        }
 
         renderNameList();
     </script>
