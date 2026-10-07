@@ -4,811 +4,436 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beehappy - Pflanzen-Abstimmung</title>
-
-    <!-- Google Fonts & Font Awesome Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 600px; 
+            margin: 20px auto; 
+            padding: 20px; 
+            background: #f4f9f4; 
+            color: #333; 
+        }
+        .header-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo-img {
+            max-width: 150px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+        h1, h2 { 
+            color: #2e7d32; 
+            text-align: center; 
+        }
+        .card { 
+            background: white; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        }
+        .item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        button { 
+            background: #4caf50; 
+            color: white; 
+            border: none; 
+            padding: 8px 12px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:disabled { 
+            background: #ccc; 
+            cursor: not-allowed; 
+        }
+        button.super { 
+            background: #ff9800; 
+            margin-left: 5px; 
+        }
+        button.admin-btn { 
+            background: #555; 
+            color: white; 
+            margin-top: 10px; 
+            width: 100%; 
+        }
+        button.reset-btn { 
+            background: #d32f2f; 
+            color: white; 
+            margin-top: 10px; 
+            width: 100%; 
+        }
+        input[type="text"] { 
+            width: 65%; 
+            padding: 8px; 
+        }
+        .info-msg { 
+            padding: 10px; 
+            background: #e8f5e9; 
+            border-left: 4px solid #2e7d32; 
+            margin-bottom: 15px; 
+        }
+        .archive-item { 
+            border-bottom: 1px solid #eee; 
+            padding: 8px 0; 
+        }
+        .archive-item:last-child { 
+            border-bottom: none; 
+        }
+        .admin-panel { 
+            display: none; 
+            background: #fff3e0; 
+            border: 1px solid #ffe0b2; 
+        }
+    </style>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
-    <!-- FingerprintJS Client-Fingerprinting -->
-    <script src="https://openfpcdn.io/fingerprintjs/v3/umd.min.js"></script>
-
-    <style>
-        :root {
-            --bg-color: #fdfbf7;
-            --card-bg: #ffffff;
-            --text-main: #2d3748;
-            --text-muted: #718096;
-            --primary: #48bb78;
-            --primary-hover: #38a169;
-            --accent-yellow: #f6ad55;
-            --accent-yellow-hover: #ed8936;
-            --accent-green: #319795;
-            --danger: #e53e3e;
-            --border-radius: 16px;
-            --box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-            --header-height: 90px;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Nunito', sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding-top: var(--header-height);
-        }
-
-        /* DYNAMISCHE KOPFZEILE (Blendet beim Scrollen aus) */
-        .header-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: var(--header-height);
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(8px);
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 2rem;
-            z-index: 1000;
-            transition: transform 0.3s ease-in-out;
-        }
-
-        .header-bar.header-hidden {
-            transform: translateY(-100%);
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-        }
-
-        /* VERGRÖSSERTES LOGO OHNE KREIS */
-        .logo-img {
-            width: 75px;
-            height: 75px;
-            object-fit: contain;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-            transition: transform 0.2s;
-        }
-
-        .logo-img:hover {
-            transform: scale(1.05);
-        }
-
-        .header-title-container {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header-title {
-            font-family: 'Quicksand', sans-serif;
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--text-main);
-            line-height: 1.1;
-        }
-
-        .header-subtitle {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        /* MENU / NAVIGATION IN DER KOPFZEILE */
-        .menu-dropdown {
-            position: relative;
-        }
-
-        .menu-btn {
-            background: #f7fafc;
-            border: 1px solid #e2e8f0;
-            padding: 0.6rem 1.2rem;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 700;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
-
-        .menu-btn:hover {
-            background: #edf2f7;
-        }
-
-        .menu-content {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 115%;
-            background: white;
-            min-width: 200px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
-            border-radius: 12px;
-            overflow: hidden;
-            z-index: 1001;
-            border: 1px solid #edf2f7;
-        }
-
-        .menu-content.show {
-            display: block;
-        }
-
-        .menu-content a {
-            color: var(--text-main);
-            padding: 0.8rem 1.2rem;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: background 0.2s;
-        }
-
-        .menu-content a:hover {
-            background: #f7fafc;
-            color: var(--primary);
-        }
-
-        /* MAIN CONTAINER MIT VERGRÖSSERTEM ABSTAND (GEGEN GEQUETSCHTES DESIGN) */
-        .container {
-            max-width: 900px;
-            margin: 2.5rem auto;
-            padding: 0 1.5rem;
-            width: 100%;
-            flex-grow: 1;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            padding: 2.5rem;
-            box-shadow: var(--box-shadow);
-            margin-bottom: 2.5rem;
-            border: 1px solid rgba(0,0,0,0.03);
-        }
-
-        .intro-card {
-            text-align: center;
-            background: linear-gradient(135deg, #ffffff 0%, #f0fff4 100%);
-            border: 1px solid #c6f6d5;
-        }
-
-        .intro-card h2 {
-            font-family: 'Quicksand', sans-serif;
-            color: #276749;
-            margin-bottom: 1rem;
-            font-size: 1.6rem;
-        }
-
-        .intro-card p {
-            color: #4a5568;
-            line-height: 1.6;
-            margin-bottom: 1rem;
-            font-size: 1.05rem;
-        }
-
-        .rules-badge {
-            display: inline-block;
-            background: #feebc8;
-            color: #7b341e;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            margin-top: 0.5rem;
-        }
-
-        /* EINGABE-FORMULAR */
-        .section-title {
-            font-family: 'Quicksand', sans-serif;
-            font-size: 1.4rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            color: var(--text-main);
-        }
-
-        .input-group {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .input-group input {
-            flex: 1;
-            padding: 1rem 1.25rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .input-group input:focus {
-            border-color: var(--primary);
-        }
-
-        .btn {
-            padding: 1rem 1.75rem;
-            border: none;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            justify-content: center;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        /* KONTROLL-ZEILE FÜR SORTIERUNG */
-        .controls-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.75rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .sort-container {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: #edf2f7;
-            padding: 0.4rem 0.8rem;
-            border-radius: 12px;
-        }
-
-        .sort-container label {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--text-muted);
-        }
-
-        .sort-select {
-            background: white;
-            border: 1px solid #cbd5e0;
-            padding: 0.4rem 0.8rem;
-            border-radius: 8px;
-            font-weight: 600;
-            color: var(--text-main);
-            outline: none;
-            cursor: pointer;
-        }
-
-        /* NAMEN-LISTE MIT GROSSZÜGIGEM ABSTAND */
-        .name-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem; /* Erhöhter Abstand verhindert gequetschten Eindruck */
-        }
-
-        .name-item {
-            background: white;
-            border: 1px solid #edf2f7;
-            border-radius: 14px;
-            padding: 1.25rem 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .name-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-        }
-
-        .name-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .name-text {
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: var(--text-main);
-        }
-
-        .vote-count {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-
-        .vote-actions {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .btn-vote {
-            background: #e6fffa;
-            color: #234e52;
-            border: 1px solid #b2f5ea;
-            padding: 0.6rem 1rem;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-vote:hover {
-            background: #b2f5ea;
-        }
-
-        .btn-supervote {
-            background: #fefcbf;
-            color: #744210;
-            border: 1px solid #faf089;
-            padding: 0.6rem 1rem;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .btn-supervote:hover {
-            background: #faf089;
-        }
-
-        /* SCROLL-TO-TOP BUTTON (RUND & SCHWEBEND) */
-        .scroll-top-btn {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
-            border: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            z-index: 999;
-        }
-
-        .scroll-top-btn.visible {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .scroll-top-btn:hover {
-            background: var(--primary-hover);
-            transform: translateY(-3px);
-        }
-
-        /* MODAL STYLES */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 2.5rem;
-            border-radius: 20px;
-            max-width: 550px;
-            width: 90%;
-            position: relative;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-
-        .close-modal {
-            position: absolute;
-            top: 1.25rem;
-            right: 1.25rem;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--text-muted);
-        }
-
-        /* FOOTER */
-        footer {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-top: auto;
-        }
-
-        /* RESPONSIVE DESIGN */
-        @media (max-width: 640px) {
-            .header-bar {
-                padding: 0 1rem;
-            }
-            .header-title {
-                font-size: 1.3rem;
-            }
-            .logo-img {
-                width: 55px;
-                height: 55px;
-            }
-            .input-group {
-                flex-direction: column;
-            }
-            .name-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
-            }
-            .vote-actions {
-                width: 100%;
-            }
-            .btn-vote, .btn-supervote {
-                flex: 1;
-                text-align: center;
-                justify-content: center;
-            }
-        }
-    </style>
+    <!-- FingerprintJS IIFE SDK -->
+    <script src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
 </head>
 <body>
 
-    <!-- DYNAMISCHE KOPFZEILE MET NAVIGATIE & LOGO -->
-    <header class="header-bar" id="headerBar">
-        <div class="header-left">
-            <!-- Vergrößertes Logo ohne Kreis-Rahmen -->
-            <img src="bee-logo.jpeg" alt="Beehappy Logo" class="logo-img" id="headerLogo">
-            <div class="header-title-container">
-                <span class="header-title">Beehappy</span>
-                <span class="header-subtitle">Pflanzen-Abstimmung</span>
-            </div>
-        </div>
+    <div class="header-container">
+        <!-- Achte darauf, dass die Datei bee-logo.jpeg im selben Ordner auf GitHub liegt -->
+        <img src="bee-logo.jpeg" alt="Beehappy Logo" class="logo-img" id="headerLogo">
+        <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
+    </div>
 
-        <div class="header-right">
-            <!-- Dropdown Menü -->
-            <div class="menu-dropdown">
-                <button class="menu-btn" onclick="toggleMenu()">
-                    <i class="fa-solid fa-bars"></i> Menü <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem;"></i>
-                </button>
-                <div class="menu-content" id="menuContent">
-                    <a href="#" onclick="openModal('modalRules')"><i class="fa-solid fa-book-open"></i> Regeln</a>
-                    <a href="#" onclick="openModal('modalProject')"><i class="fa-solid fa-circle-info"></i> Das Projekt</a>
-                    <a href="#" onclick="openModal('modalArchive')"><i class="fa-solid fa-box-archive"></i> Archiv</a>
-                    <a href="#" onclick="openModal('modalImpressum')"><i class="fa-solid fa-section"></i> Impressum</a>
-                </div>
-            </div>
-        </div>
-    </header>
+    <div id="statusMessage" class="info-msg">
+        Lade Abstimmung...
+    </div>
 
-    <!-- MAIN CONTAINER (Entzerrtes Design) -->
-    <main class="container">
+    <!-- Vorschlag einreichen -->
+    <div class="card">
+        <h3>Neuen Namen vorschlagen</h3>
+        <input type="text" id="nameInput" placeholder="Pflanzenname eingeben (max. 30 Zeichen)..." maxlength="30">
+        <button id="addBtn" onclick="addName()">Hinzufügen</button>
+    </div>
 
-        <!-- INTRO BEREICH -->
-        <section class="card intro-card">
-            <h2><i class="fa-solid fa-seedling"></i> Gib den Pflanzen einen Namen!</h2>
-            <p>
-                Unterstütze das Seminarkursprojekt "Beehappy". Stimme wöchentlich für deinen Lieblings-Namen ab 
-                oder schlage einen eigenen Namen vor.
-            </p>
-            <div class="rules-badge">
-                <i class="fa-solid fa-clock"></i> 1 freie Aktion pro Woche (Name vorschlagen ODER abstimmen)
-            </div>
-        </section>
+    <!-- Aktuelle Liste der Namen -->
+    <h2>Aktuelle Abstimmung</h2>
+    <div id="nameList">Lade Abstimmung...</div>
 
-        <!-- NORMALE VORSCHLAG-EINGABE -->
-        <section class="card">
-            <h3 class="section-title"><i class="fa-solid fa-plus-circle"></i> Einen neuen Namen vorschlagen</h3>
-            <form id="suggestForm" onsubmit="handleSuggestion(event)">
-                <div class="input-group">
-                    <input type="text" id="nameInput" maxlength="30" placeholder="Pflanzennamen eingeben (max. 30 Zeichen)..." required>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fa-solid fa-paper-plane"></i> Einreichen
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- ABSTIMMUNGSLISTE MIT SORTIERUNG -->
-        <section class="card">
-            <div class="controls-header">
-                <h3 class="section-title" style="margin-bottom: 0;">
-                    <i class="fa-solid fa-list-ol"></i> Aktuelle Vorschläge
-                </h3>
-                
-                <!-- Sortierungs-Dropdown -->
-                <div class="sort-container">
-                    <label for="sortSelect"><i class="fa-solid fa-filter"></i> Sortieren:</label>
-                    <select id="sortSelect" class="sort-select" onchange="renderNameList()">
-                        <option value="votes">Beliebtheit (Meiste Stimmen)</option>
-                        <option value="newest">Neueste / Letzte Änderung</option>
-                        <option value="alphabetical">Alphabetisch (A-Z)</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Liste der Namen mit großzügigem Abstand -->
-            <div class="name-list" id="nameListContainer">
-                <!-- Wird dynamisch per JavaScript befüllt -->
-            </div>
-        </section>
-
-    </main>
-
-    <!-- SCROLL-TO-TOP BUTTON -->
-    <button class="scroll-top-btn" id="scrollTopBtn" onclick="scrollToTop()" title="Nach oben scrollen">
-        <i class="fa-solid fa-arrow-up"></i>
-    </button>
-
-    <!-- MODAL POPUPS -->
-    <div class="modal" id="modalRules">
-        <div class="modal-content">
-            <button class="close-modal" onclick="closeModal('modalRules')">&times;</button>
-            <h3 class="section-title"><i class="fa-solid fa-book-open"></i> Abstimmungsregeln</h3>
-            <p>1. Jeder darf <strong>einmal pro Woche</strong> kostenlos abstimmen oder einen Namen vorschlagen.</p><br>
-            <p>2. Namen dürfen maximal 30 Zeichen lang sein und keine beleidigenden Inhalte enthalten.</p><br>
-            <p>3. Über Super-Stimmen kann unbegrenzt oft mit einer kleinen Spende abgestimmt werden.</p>
+    <!-- Archiv für alte Wochen -->
+    <div class="card" style="margin-top: 30px;">
+        <h2>📜 Archiv vergangener Wochen</h2>
+        <div id="archiveList">
+            <small>Noch keine vergangenen Abstimmungen archiviert.</small>
         </div>
     </div>
 
-    <div class="modal" id="modalProject">
-        <div class="modal-content">
-            <button class="close-modal" onclick="closeModal('modalProject')">&times;</button>
-            <h3 class="section-title"><i class="fa-solid fa-circle-info"></i> Über Beehappy</h3>
-            <p>Wir sind ein Team aus drei Schülern im Rahmen des Seminarkurses Wirtschaftswissenschaften (G_24_1). Unser Ziel ist es, einige der 17 SDGs zu unterstützen und gleichzeitig Mittel für unseren Abiball zu sammeln.</p>
-             <p>Die durchführung des Projekts lag allein in unserer Hand, jedoch möchten wir uns ganz Herzlich bei unseren Alphatestern von Saarhexerich bedanken. Vielen Dank.</p>
+    <!-- Admin-Bereich -->
+    <div style="margin-top: 40px;">
+        <button class="admin-btn" onclick="toggleAdminPanel()">⚙️ Admin-Bereich (Lehrer / Orga)</button>
+        <div id="adminPanel" class="card admin-panel">
+            <h3>Admin-Steuerung</h3>
+            <p><small>Hier kannst du die Abstimmung beenden und das Ergebnis archivieren.</small></p>
+            <button class="reset-btn" onclick="resetWeeklyVoting()">Woche beenden & Ergebnisse archivieren</button>
         </div>
     </div>
 
-    <div class="modal" id="modalArchive">
-        <div class="modal-content">
-            <button class="close-modal" onclick="closeModal('modalArchive')">&times;</button>
-            <h3 class="section-title"><i class="fa-solid fa-box-archive"></i> Gewinner-Archiv</h3>
-            <p>Hier werden die Gewinner stehen, also stimm doch gerne ab.</p>
-            <ul id="archiveList" style="margin-top: 1rem; padding-left: 1.2rem;">
-                <!-- Dynamischer Archiv-Inhalt -->
-            </ul>
-        </div>
-    </div>
-
-    <div class="modal" id="modalImpressum">
-        <div class="modal-content">
-            <button class="close-modal" onclick="closeModal('modalImpressum')">&times;</button>
-            <h3 class="section-title"><i class="fa-solid fa-section"></i> Impressum</h3>
-            <p><strong>Projekt:</strong> Beehappy</p>
-            <p><strong>Fach:</strong> Seminarkurs Wirtschaftswissenschaften (Skww)</p>
-            <p><strong>Kurs:</strong> G_24_1</p>
-            <p><strong>Kontakt:</strong> kontakt@beehappy-projekt.de</p>
-        </div>
-    </div>
-
-    <!-- FOOTER UND ADMIN BTN -->
-    <footer>
-        <p>&copy; 2026 Beehappy Project. Alle Rechte und Rechtschreibfehler vorbehalten.</p>
-        <button onclick="openAdminPrompt()" style="background:none; border:none; color: #cbd5e0; cursor:pointer; margin-top: 0.5rem; font-size:0.8rem;">System-Verwaltung</button>
-    </footer>
-
-    <!-- JAVASCRIPT LOGIK -->
     <script>
-        // FIREBASE KONFIGURATION (Beispielplatzhalter)
         const firebaseConfig = {
-            apiKey: "AIzaSy...",
-            authDomain: "beehappy-app.firebaseapp.com",
-            databaseURL: "https://beehappy-app-default-rtdb.firebaseio.com",
-            projectId: "beehappy-app",
-            storageBucket: "beehappy-app.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abc123def456"
+            apiKey: "AIzaSyDP1ipt-iW9r0cADFKFXFc502LZlThxJzM",
+            authDomain: "beehappy-abstimmung.firebaseapp.com",
+            databaseURL: "https://beehappy-abstimmung-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "beehappy-abstimmung",
+            storageBucket: "beehappy-abstimmung.firebasestorage.app",
+            messagingSenderId: "555575924691",
+            appId: "1:555575924691:web:6059bedfc504c06e35c126"
         };
-        
-        // Initialisiere Firebase (falls noch nicht vorhanden)
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        let namesData = {};
+        let archiveData = {};
+        let votersData = {};
+        let currentDeviceId = null;
+
+        function setCookie(name, value, days) {
+            const date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + date.toUTCString() + "; path=/";
         }
 
-        // BEISPIEL-DATEN ZUR DEMONSTRATION
-        let sampleData = [
-            { id: "1", name: "Sonnenblumen-Oase", votes: 42, timestamp: 1710000000000 },
-            { id: "2", name: "Bienen-Paradies", votes: 89, timestamp: 1710100000000 },
-            { id: "3", name: "Klatschmohn-Wiese", votes: 15, timestamp: 1710200000000 },
-            { id: "4", name: "Hummel-Himmel", votes: 63, timestamp: 1710300000000 }
-        ];
-
-        // LOGIK: KOPFZEILE BEIM SCROLLEN AUSBLENDEN
-        let lastScrollTop = 0;
-        const headerBar = document.getElementById('headerBar');
-        const scrollTopBtn = document.getElementById('scrollTopBtn');
-
-        window.addEventListener('scroll', () => {
-            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-            // Header ein-/ausblenden
-            if (scrollTop > lastScrollTop && scrollTop > 100) {
-                headerBar.classList.add('header-hidden');
-            } else {
-                headerBar.classList.remove('header-hidden');
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
             }
-            lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+            return null;
+        }
 
-            // Scroll-To-Top Button anzeigen
-            if (scrollTop > 300) {
-                scrollTopBtn.classList.add('visible');
-            } else {
-                scrollTopBtn.classList.remove('visible');
+        function getFallbackDeviceId() {
+            let id = localStorage.getItem('beehappy_device_id') || getCookie('beehappy_device_id');
+            if (!id) {
+                id = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
             }
-        });
-
-        // NACH OBEN SCROLLEN
-        function scrollToTop() {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
+            localStorage.setItem('beehappy_device_id', id);
+            setCookie('beehappy_device_id', id, 365);
+            return id;
         }
 
-        // DROPDOWN MENÜ TOGGLE
-        function toggleMenu() {
-            document.getElementById('menuContent').classList.toggle('show');
-        }
+        function initDeviceId() {
+            let isLoaded = false;
 
-        window.onclick = function(event) {
-            if (!event.target.matches('.menu-btn') && !event.target.matches('.menu-btn *')) {
-                const dropdowns = document.getElementsByClassName("menu-content");
-                for (let i = 0; i < dropdowns.length; i++) {
-                    let openDropdown = dropdowns[i];
-                    if (openDropdown.classList.contains('show')) {
-                        openDropdown.classList.remove('show');
-                    }
+            const timeout = setTimeout(() => {
+                if (!isLoaded) {
+                    isLoaded = true;
+                    currentDeviceId = getFallbackDeviceId();
+                    render();
+                }
+            }, 1000);
+
+            if (window.FingerprintJS) {
+                FingerprintJS.load()
+                    .then(fp => fp.get())
+                    .then(result => {
+                        if (!isLoaded) {
+                            isLoaded = true;
+                            clearTimeout(timeout);
+                            currentDeviceId = 'fp_' + result.visitorId.replace(/[\.\#\$\/\[\]]/g, "_");
+                            render();
+                        }
+                    })
+                    .catch(err => {
+                        if (!isLoaded) {
+                            isLoaded = true;
+                            clearTimeout(timeout);
+                            currentDeviceId = getFallbackDeviceId();
+                            render();
+                        }
+                    });
+            } else {
+                if (!isLoaded) {
+                    isLoaded = true;
+                    clearTimeout(timeout);
+                    currentDeviceId = getFallbackDeviceId();
+                    render();
                 }
             }
         }
 
-        // MODAL STEUERUNG
-        function openModal(id) {
-            document.getElementById(id).classList.add('active');
+        // Live-Synchronisation mit Firebase
+        db.ref('names').on('value', snapshot => {
+            namesData = snapshot.val() || {};
+            render();
+        });
+
+        db.ref('voters').on('value', snapshot => {
+            votersData = snapshot.val() || {};
+            render();
+        });
+
+        db.ref('archive').on('value', snapshot => {
+            archiveData = snapshot.val() || {};
+            renderArchive();
+        });
+
+        function hasUserVoted() {
+            if (!currentDeviceId) return false;
+            return votersData[currentDeviceId] === true;
         }
 
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('active');
-        }
+        function render() {
+            const list = document.getElementById('nameList');
+            const statusMsg = document.getElementById('statusMessage');
+            const addBtn = document.getElementById('addBtn');
+            const nameInput = document.getElementById('nameInput');
 
-        // LISTE MIT SORTIERUNG RENDERN
-        function renderNameList() {
-            const container = document.getElementById('nameListContainer');
-            const sortCriteria = document.getElementById('sortSelect').value;
-            
-            // Kopie des Arrays für die Sortierung
-            let sortedData = [...sampleData];
-
-            if (sortCriteria === 'votes') {
-                sortedData.sort((a, b) => b.votes - a.votes);
-            } else if (sortCriteria === 'newest') {
-                sortedData.sort((a, b) => b.timestamp - a.timestamp);
-            } else if (sortCriteria === 'alphabetical') {
-                sortedData.sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
+            if (!currentDeviceId) {
+                statusMsg.innerHTML = "Lade Abstimmung... Bitte einen Moment gedulden.";
+                addBtn.disabled = true;
+                nameInput.disabled = true;
+                return;
             }
 
-            container.innerHTML = '';
+            const userHasVoted = hasUserVoted();
 
-            sortedData.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'name-item';
-                itemEl.innerHTML = `
-                    <div class="name-info">
-                        <span class="name-text">${escapeHtml(item.name)}</span>
-                        <span class="vote-count"><i class="fa-solid fa-heart" style="color: #e53e3e;"></i> ${item.votes} Stimmen</span>
+            if (userHasVoted) {
+                statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
+                addBtn.disabled = true;
+                nameInput.disabled = true;
+            } else {
+                statusMsg.innerHTML = "Du kannst <strong>entweder</strong> 1 Stimme abgeben <strong>oder</strong> 1 neuen Namen vorschlagen.";
+                addBtn.disabled = false;
+                nameInput.disabled = false;
+            }
+
+            list.innerHTML = '';
+            
+            let namesArray = [];
+            for (let id in namesData) {
+                namesArray.push({ id: id, ...namesData[id] });
+            }
+            namesArray.sort((a, b) => b.votes - a.votes);
+
+            if (namesArray.length === 0) {
+                list.innerHTML = '<small>Noch keine Namensvorschläge vorhanden.</small>';
+                return;
+            }
+
+            namesArray.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'card item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${item.text}</strong><br>
+                        <small>Stimmen: ${item.votes}</small>
                     </div>
-                    <div class="vote-actions">
-                        <button class="btn-vote" onclick="vote('${item.id}')">
-                            <i class="fa-solid fa-thumbs-up"></i> Abstimmen
+                    <div>
+                        <button onclick="vote('${item.id}')" ${userHasVoted ? 'disabled' : ''}>
+                            ${userHasVoted ? 'Gestimmt' : '+1 Stimme'}
                         </button>
-                        <button class="btn-supervote" onclick="superVote('${item.id}')">
-                            <i class="fa-solid fa-star"></i> Super-Stimme
-                        </button>
+                        <button class="super" onclick="buySuperVote('${item.text}')">Super-Stimme (€)</button>
                     </div>
                 `;
-                container.appendChild(itemEl);
+                list.appendChild(div);
             });
         }
 
-        // HTML ESCAPING GEGEN XSS
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        function renderArchive() {
+            const archiveDiv = document.getElementById('archiveList');
+            let archiveArray = Object.values(archiveData);
+
+            if (archiveArray.length === 0) {
+                archiveDiv.innerHTML = '<small>Noch keine vergangenen Abstimmungen archiviert.</small>';
+                return;
+            }
+
+            archiveDiv.innerHTML = '';
+            archiveArray.reverse().forEach(weekData => {
+                const weekContainer = document.createElement('div');
+                weekContainer.className = 'archive-item';
+                
+                let winnerText = weekData.winner ? `🏆 Gewinner: <strong>${weekData.winner.text}</strong> (${weekData.winner.votes} Stimmen)` : 'Keine Stimmen';
+                
+                weekContainer.innerHTML = `
+                    <strong>Woche vom ${weekData.date}:</strong><br>
+                    ${winnerText}
+                `;
+                archiveDiv.appendChild(weekContainer);
+            });
         }
 
-        // VORSCHLAG EINREICHEN
-        function handleSuggestion(e) {
-            e.preventDefault();
-            const input = document.getElementById('nameInput');
-            const val = input.value.trim();
-            if(val) {
-                sampleData.push({
-                    id: Date.now().toString(),
-                    name: val,
-                    votes: 1,
-                    timestamp: Date.now()
-                });
-                input.value = '';
-                renderNameList();
-                alert('Vorschlag erfolgreich eingereicht!');
+        function addName() {
+            if (hasUserVoted()) {
+                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                return;
             }
+
+            const input = document.getElementById('nameInput');
+            const text = input.value.trim().substring(0, 30);
+
+            if (text === '') {
+                alert("Bitte gib einen Namen ein.");
+                return;
+            }
+
+            const exists = Object.values(namesData).some(item => item.text.toLowerCase() === text.toLowerCase());
+            if (exists) {
+                alert("Dieser Pflanzenname wurde bereits vorgeschlagen! Bitte wähle einen anderen Namen oder stimme für den bestehenden ab.");
+                return;
+            }
+
+            const newRef = db.ref('names').push();
+            newRef.set({ text: text, votes: 1 });
+
+            db.ref('voters/' + currentDeviceId).set(true);
+
+            input.value = '';
         }
 
         function vote(id) {
-            const item = sampleData.find(d => d.id === id);
-            if(item) {
-                item.votes++;
-                renderNameList();
+            if (hasUserVoted()) {
+                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
+                return;
+            }
+
+            const currentVotes = namesData[id] ? namesData[id].votes : 0;
+            db.ref('names/' + id + '/votes').set(currentVotes + 1);
+
+            db.ref('voters/' + currentDeviceId).set(true);
+        }
+
+        function buySuperVote(name) {
+            alert(`Du wirst nun zur Zahlung weitergeleitet, um eine Super-Stimme für "${name}" zu kaufen und die Pflanze zu sichern.`);
+            window.location.href = "https://paypal.me/DEIN_PROJEKTNAME/2"; 
+        }
+
+        // Admin-Panel öffnen und authentifizieren
+        async function toggleAdminPanel() {
+            const panel = document.getElementById('adminPanel');
+            
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+                return;
+            }
+
+            if (auth.currentUser) {
+                panel.style.display = 'block';
+                return;
+            }
+
+            const email = prompt("Bitte Admin E-Mail eingeben:");
+            if (!email) return;
+
+            const password = prompt("Bitte Admin Passwort eingeben:");
+            if (!password) return;
+
+            try {
+                await auth.signInWithEmailAndPassword(email.trim(), password.trim());
+                alert("Erfolgreich als Admin angemeldet!");
+                panel.style.display = 'block';
+            } catch (error) {
+                alert("Anmeldung fehlgeschlagen: " + error.message);
             }
         }
 
-        function superVote(id) {
-            alert("Weiterleitung zu PayPal für eine Super-Stimme...");
+        // Abstimmung beenden & archivieren mit Fehlerbehandlung
+        async function resetWeeklyVoting() {
+            if (!auth.currentUser) {
+                alert("Du musst als Admin angemeldet sein, um diese Aktion auszuführen!");
+                return;
+            }
+
+            if (confirm("Möchtest du die aktuelle Woche wirklich beenden? Die Daten werden archiviert und alle Abstimmungen/Sperren zurückgesetzt.")) {
+                try {
+                    let namesArray = Object.values(namesData);
+                    namesArray.sort((a, b) => b.votes - a.votes);
+                    let winner = namesArray.length > 0 ? namesArray[0] : null;
+
+                    const today = new Date().toLocaleDateString('de-DE');
+                    
+                    await db.ref('archive').push({
+                        date: today,
+                        winner: winner,
+                        allResults: namesData
+                    });
+
+                    await db.ref('names').remove();
+                    await db.ref('voters').remove();
+
+                    alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Personen können wieder abstimmen!");
+                } catch (error) {
+                    alert("Fehler beim Zurücksetzen: " + error.message);
+                }
+            }
         }
 
-        function openAdminPrompt() {
-            const pass = prompt("Bitte Administrator-Passwort eingeben:");
-            if(pass) alert("Authentifizierung wird durchgeführt...");
-        }
-
-        // INITIALES RENDERN
-        renderNameList();
+        initDeviceId();
     </script>
 </body>
 </html>
