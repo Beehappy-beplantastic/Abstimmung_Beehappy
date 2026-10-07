@@ -50,7 +50,6 @@
             padding-top: var(--header-height);
         }
 
-        /* DYNAMISCHE KOPFZEILE (Blendet beim Scrollen aus) */
         .header-bar {
             position: fixed;
             top: 0;
@@ -78,7 +77,6 @@
             gap: 1.25rem;
         }
 
-        /* VERGRÖSSERTES LOGO OHNE KREIS */
         .logo-img {
             width: 75px;
             height: 75px;
@@ -116,7 +114,6 @@
             gap: 1rem;
         }
 
-        /* MENU / NAVIGATION IN DER KOPFZEILE */
         .menu-dropdown {
             position: relative;
         }
@@ -174,7 +171,6 @@
             color: var(--primary);
         }
 
-        /* MAIN CONTAINER MIT VERGRÖSSERTEM ABSTAND */
         .container {
             max-width: 900px;
             margin: 2.5rem auto;
@@ -223,7 +219,6 @@
             margin-top: 0.5rem;
         }
 
-        /* EINGABE-FORMULAR */
         .section-title {
             font-family: 'Quicksand', sans-serif;
             font-size: 1.4rem;
@@ -278,7 +273,6 @@
             transform: translateY(-1px);
         }
 
-        /* KONTROLL-ZEILE FÜR SORTIERUNG */
         .controls-header {
             display: flex;
             justify-content: space-between;
@@ -314,7 +308,6 @@
             cursor: pointer;
         }
 
-        /* NAMEN-LISTE */
         .name-list {
             display: flex;
             flex-direction: column;
@@ -345,4 +338,434 @@
         }
 
         .name-text {
-            font
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--text-main);
+        }
+
+        .vote-count {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .vote-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn-vote {
+            background: #e6fffa;
+            color: #234e52;
+            border: 1px solid #b2f5ea;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-vote:hover {
+            background: #b2f5ea;
+        }
+
+        .btn-supervote {
+            background: #fefcbf;
+            color: #744210;
+            border: 1px solid #faf089;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-supervote:hover {
+            background: #faf089;
+        }
+
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+
+        .scroll-top-btn.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .scroll-top-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-3px);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 20px;
+            max-width: 550px;
+            width: 90%;
+            position: relative;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: auto;
+        }
+
+        @media (max-width: 640px) {
+            .header-bar {
+                padding: 0 1rem;
+            }
+            .header-title {
+                font-size: 1.3rem;
+            }
+            .logo-img {
+                width: 55px;
+                height: 55px;
+            }
+            .input-group {
+                flex-direction: column;
+            }
+            .name-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            .vote-actions {
+                width: 100%;
+            }
+            .btn-vote, .btn-supervote {
+                flex: 1;
+                text-align: center;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header-bar" id="headerBar">
+        <div class="header-left">
+            <img src="bee-logo.png" alt="Beehappy Logo" class="logo-img" id="headerLogo">
+            <div class="header-title-container">
+                <span class="header-title">Beehappy</span>
+                <span class="header-subtitle">Pflanzen-Abstimmung</span>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <div class="menu-dropdown">
+                <button class="menu-btn" onclick="toggleMenu()">
+                    <i class="fa-solid fa-bars"></i> Menü <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem;"></i>
+                </button>
+                <div class="menu-content" id="menuContent">
+                    <a href="#" onclick="openModal('modalRules')"><i class="fa-solid fa-book-open"></i> Regeln</a>
+                    <a href="#" onclick="openModal('modalProject')"><i class="fa-solid fa-circle-info"></i> Das Projekt</a>
+                    <a href="#" onclick="openModal('modalArchive')"><i class="fa-solid fa-box-archive"></i> Archiv</a>
+                    <a href="#" onclick="openModal('modalImpressum')"><i class="fa-solid fa-section"></i> Impressum</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <section class="card intro-card">
+            <h2><i class="fa-solid fa-seedling"></i> Gib den Pflanzen einen Namen!</h2>
+            <p>
+                Unterstütze das Seminarkursprojekt "Beehappy". Stimme wöchentlich für deinen Lieblings-Namen ab 
+                oder schlage einen eigenen Namen vor.
+            </p>
+            <div class="rules-badge">
+                <i class="fa-solid fa-clock"></i> 1 freie Aktion pro Woche (Name vorschlagen ODER abstimmen)
+            </div>
+        </section>
+
+        <section class="card">
+            <h3 class="section-title"><i class="fa-solid fa-plus-circle"></i> Einen neuen Namen vorschlagen</h3>
+            <form id="suggestForm" onsubmit="handleSuggestion(event)">
+                <div class="input-group">
+                    <input type="text" id="nameInput" maxlength="30" placeholder="Pflanzennamen eingeben (max. 30 Zeichen)..." required>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-paper-plane"></i> Einreichen
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card">
+            <div class="controls-header">
+                <h3 class="section-title" style="margin-bottom: 0;">
+                    <i class="fa-solid fa-list-ol"></i> Aktuelle Vorschläge
+                </h3>
+                
+                <div class="sort-container">
+                    <label for="sortSelect"><i class="fa-solid fa-filter"></i> Sortieren:</label>
+                    <select id="sortSelect" class="sort-select" onchange="renderNameList()">
+                        <option value="votes">Beliebtheit (Meiste Stimmen)</option>
+                        <option value="newest">Neueste / Letzte Änderung</option>
+                        <option value="alphabetical">Alphabetisch (A-Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="name-list" id="nameListContainer"></div>
+        </section>
+
+    </main>
+
+    <button class="scroll-top-btn" id="scrollTopBtn" onclick="scrollToTop()" title="Nach oben scrollen">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <div class="modal" id="modalRules">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('modalRules')">&times;</button>
+            <h3 class="section-title"><i class="fa-solid fa-book-open"></i> Abstimmungsregeln</h3>
+            <p>1. Jeder darf <strong>einmal pro Woche</strong> kostenlos abstimmen oder einen Namen vorschlagen.</p><br>
+            <p>2. Namen dürfen maximal 30 Zeichen lang sein und keine beleidigenden Inhalte enthalten.</p><br>
+            <p>3. Über Super-Stimmen kann unbegrenzt oft mit einer kleinen Spende abgestimmt werden.</p>
+        </div>
+    </div>
+
+    <div class="modal" id="modalProject">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('modalProject')">&times;</button>
+            <h3 class="section-title"><i class="fa-solid fa-circle-info"></i> Über Beehappy</h3>
+            <p>Wir sind ein Team aus drei Schülern im Rahmen des Seminarkurses Wirtschaftswissenschaften (G_24_1)[cite: 1]. Unser Ziel ist es, einige der 17 SDGs zu unterstützen und gleichzeitig Mittel für unseren Abiball zu sammeln[cite: 1].</p><br>
+            <p>Die Durchführung des Projekts lag allein in unserer Hand, jedoch möchten wir uns ganz herzlich bei unseren Alphatestern von Saarhexerich bedanken. Vielen Dank[cite: 1].</p>
+        </div>
+    </div>
+
+    <div class="modal" id="modalArchive">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('modalArchive')">&times;</button>
+            <h3 class="section-title"><i class="fa-solid fa-box-archive"></i> Gewinner-Archiv</h3>
+            <p>Hier werden die Gewinner stehen, also stimm doch gerne ab.</p>
+            <ul id="archiveList" style="margin-top: 1rem; padding-left: 1.2rem;"></ul>
+        </div>
+    </div>
+
+    <div class="modal" id="modalImpressum">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('modalImpressum')">&times;</button>
+            <h3 class="section-title"><i class="fa-solid fa-section"></i> Impressum</h3>
+            <p><strong>Projekt:</strong> Beehappy</p>
+            <p><strong>Fach:</strong> Seminarkurs Wirtschaftswissenschaften (Skww)</p>
+            <p><strong>Kurs:</strong> G_24_1</p>
+            <p><strong>Kontakt:</strong> kontakt@beehappy-projekt.de</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Beehappy Project. Alle Rechte und Rechtschreibfehler vorbehalten.</p>
+        <button onclick="openAdminPrompt()" style="background:none; border:none; color: #cbd5e0; cursor:pointer; margin-top: 0.5rem; font-size:0.8rem;">System-Verwaltung</button>
+    </footer>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSy...",
+            authDomain: "beehappy-app.firebaseapp.com",
+            databaseURL: "https://beehappy-app-default-rtdb.firebaseio.com",
+            projectId: "beehappy-app",
+            storageBucket: "beehappy-app.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc123def456"
+        };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        let sampleData = [
+            { id: "1", name: "Sonnenblumen-Oase", votes: 42, timestamp: 1710000000000 },
+            { id: "2", name: "Bienen-Paradies", votes: 89, timestamp: 1710100000000 },
+            { id: "3", name: "Klatschmohn-Wiese", votes: 15, timestamp: 1710200000000 },
+            { id: "4", name: "Hummel-Himmel", votes: 63, timestamp: 1710300000000 }
+        ];
+
+        let lastScrollTop = 0;
+        const headerBar = document.getElementById('headerBar');
+        const scrollTopBtn = document.getElementById('scrollTopBtn');
+
+        window.addEventListener('scroll', () => {
+            let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+            if (scrollTop > lastScrollTop && scrollTop > 100) {
+                headerBar.classList.add('header-hidden');
+            } else {
+                headerBar.classList.remove('header-hidden');
+            }
+            lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+
+            if (scrollTop > 300) {
+                scrollTopBtn.classList.add('visible');
+            } else {
+                scrollTopBtn.classList.remove('visible');
+            }
+        });
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        function toggleMenu() {
+            document.getElementById('menuContent').classList.toggle('show');
+        }
+
+        window.onclick = function(event) {
+            if (!event.target.matches('.menu-btn') && !event.target.matches('.menu-btn *')) {
+                const dropdowns = document.getElementsByClassName("menu-content");
+                for (let i = 0; i < dropdowns.length; i++) {
+                    let openDropdown = dropdowns[i];
+                    if (openDropdown.classList.contains('show')) {
+                        openDropdown.classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function renderNameList() {
+            const container = document.getElementById('nameListContainer');
+            const sortCriteria = document.getElementById('sortSelect').value;
+            
+            let sortedData = [...sampleData];
+
+            if (sortCriteria === 'votes') {
+                sortedData.sort((a, b) => b.votes - a.votes);
+            } else if (sortCriteria === 'newest') {
+                sortedData.sort((a, b) => b.timestamp - a.timestamp);
+            } else if (sortCriteria === 'alphabetical') {
+                sortedData.sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
+            }
+
+            container.innerHTML = '';
+
+            sortedData.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'name-item';
+                itemEl.innerHTML = `
+                    <div class="name-info">
+                        <span class="name-text">${escapeHtml(item.name)}</span>
+                        <span class="vote-count"><i class="fa-solid fa-heart" style="color: #e53e3e;"></i> ${item.votes} Stimmen</span>
+                    </div>
+                    <div class="vote-actions">
+                        <button class="btn-vote" onclick="vote('${item.id}')">
+                            <i class="fa-solid fa-thumbs-up"></i> Abstimmen
+                        </button>
+                        <button class="btn-supervote" onclick="superVote('${item.id}')">
+                            <i class="fa-solid fa-star"></i> Super-Stimme
+                        </button>
+                    </div>
+                `;
+                container.appendChild(itemEl);
+            });
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function handleSuggestion(e) {
+            e.preventDefault();
+            const input = document.getElementById('nameInput');
+            const val = input.value.trim();
+            if(val) {
+                sampleData.push({
+                    id: Date.now().toString(),
+                    name: val,
+                    votes: 1,
+                    timestamp: Date.now()
+                });
+                input.value = '';
+                renderNameList();
+                alert('Vorschlag erfolgreich eingereicht!');
+            }
+        }
+
+        function vote(id) {
+            const item = sampleData.find(d => d.id === id);
+            if(item) {
+                item.votes++;
+                renderNameList();
+            }
+        }
+
+        function superVote(id) {
+            alert("Weiterleitung zu PayPal für eine Super-Stimme...");
+        }
+
+        function openAdminPrompt() {
+            const pass = prompt("Bitte Administrator-Passwort eingeben:");
+            if(pass) alert("Authentifizierung wird durchgeführt...");
+        }
+
+        renderNameList();
+    </script>
+</body>
+</html>
