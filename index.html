@@ -761,9 +761,23 @@
         }
 
         function openAdminPrompt() {
-            const pass = prompt("Bitte Administrator-Passwort eingeben:");
-            if(pass) alert("Authentifizierung wird durchgeführt...");
-        }
+    const pass = prompt("Bitte Administrator-Passwort eingeben:");
+    if (pass === "deinPasswort123") { // Passe hier dein Passwort an
+        openModal('modalAdmin');
+    } else if (pass !== null) {
+        alert("Falsches Passwort!");
+    }
+}
+        <div class="modal" id="modalAdmin">
+    <div class="modal-content">
+        <button class="close-modal" onclick="closeModal('modalAdmin')">&times;</button>
+        <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Admin-Bereich</h3>
+        <p>Willkommen im Administrations-Bereich!</p>
+        <br>
+        <!-- Hier kannst du deine Admin-Funktionen oder Buttons platzieren -->
+        <p>Hier kannst du Vorschläge verwalten oder das Wöchentliche Voting zurücksetzen.</p>
+    </div>
+</div>
 
         renderNameList();
     </script>
