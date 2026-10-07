@@ -4,439 +4,345 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beehappy - Pflanzen-Abstimmung</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 600px; 
-            margin: 20px auto; 
-            padding: 20px; 
-            background: #f4f9f4; 
-            color: #333; 
-        }
-        .header-container {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .logo-img {
-            max-width: 150px;
-            height: auto;
-            margin-bottom: 10px;
-        }
-        h1, h2 { 
-            color: #2e7d32; 
-            text-align: center; 
-        }
-        .card { 
-            background: white; 
-            padding: 15px; 
-            margin: 10px 0; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-        }
-        .item { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-        }
-        button { 
-            background: #4caf50; 
-            color: white; 
-            border: none; 
-            padding: 8px 12px; 
-            border-radius: 4px; 
-            cursor: pointer; 
-        }
-        button:disabled { 
-            background: #ccc; 
-            cursor: not-allowed; 
-        }
-        button.super { 
-            background: #ff9800; 
-            margin-left: 5px; 
-        }
-        button.admin-btn { 
-            background: #555; 
-            color: white; 
-            margin-top: 10px; 
-            width: 100%; 
-        }
-        button.reset-btn { 
-            background: #d32f2f; 
-            color: white; 
-            margin-top: 10px; 
-            width: 100%; 
-        }
-        input[type="text"] { 
-            width: 65%; 
-            padding: 8px; 
-        }
-        .info-msg { 
-            padding: 10px; 
-            background: #e8f5e9; 
-            border-left: 4px solid #2e7d32; 
-            margin-bottom: 15px; 
-        }
-        .archive-item { 
-            border-bottom: 1px solid #eee; 
-            padding: 8px 0; 
-        }
-        .archive-item:last-child { 
-            border-bottom: none; 
-        }
-        .admin-panel { 
-            display: none; 
-            background: #fff3e0; 
-            border: 1px solid #ffe0b2; 
-        }
-    </style>
 
-    <!-- Firebase SDKs (inklusive Authentication) -->
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
-    <!-- FingerprintJS IIFE SDK -->
-    <script src="https://openfpcdn.io/fingerprintjs/v3/iife.min.js"></script>
-</head>
-<body>
+    <!-- FingerprintJS Client-Fingerprinting -->
+    <script src="https://openfpcdn.io/fingerprintjs/v3/umd.min.js"></script>
 
-    <div class="header-container">
-        <img src="bee-logo.jpeg" alt="Beehappy Logo" class="logo-img" id="headerLogo">
-        <h1>Beehappy 🐝 Pflanzennamen-Wahl</h1>
-    </div>
-
-    <div id="statusMessage" class="info-msg">
-        Lade Abstimmung...
-    </div>
-
-    <!-- Vorschlag einreichen -->
-    <div class="card">
-        <h3>Neuen Namen vorschlagen</h3>
-        <input type="text" id="nameInput" placeholder="Pflanzenname eingeben (max. 30 Zeichen)..." maxlength="30">
-        <button id="addBtn" onclick="addName()">Hinzufügen</button>
-    </div>
-
-    <!-- Aktuelle Liste der Namen -->
-    <h2>Aktuelle Abstimmung</h2>
-    <div id="nameList">Lade Abstimmung...</div>
-
-    <!-- Archiv für alte Wochen -->
-    <div class="card" style="margin-top: 30px;">
-        <h2>📜 Archiv vergangener Wochen</h2>
-        <div id="archiveList">
-            <small>Noch keine vergangenen Abstimmungen archiviert.</small>
-        </div>
-    </div>
-
-    <!-- Admin-Bereich -->
-    <div style="margin-top: 40px;">
-        <button class="admin-btn" onclick="toggleAdminPanel()">⚙️ Admin-Bereich (Lehrer / Orga)</button>
-        <div id="adminPanel" class="card admin-panel">
-            <h3>Admin-Steuerung</h3>
-            <p><small>Hier kannst du die Abstimmung beenden und das Ergebnis archivieren.</small></p>
-            <button class="reset-btn" onclick="resetWeeklyVoting()">Woche beenden & Ergebnisse archivieren</button>
-        </div>
-    </div>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyDP1ipt-iW9r0cADFKFXFc502LZlThxJzM",
-            authDomain: "beehappy-abstimmung.firebaseapp.com",
-            databaseURL: "https://beehappy-abstimmung-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "beehappy-abstimmung",
-            storageBucket: "beehappy-abstimmung.firebasestorage.app",
-            messagingSenderId: "555575924691",
-            appId: "1:555575924691:web:6059bedfc504c06e35c126"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const auth = firebase.auth();
-
-        let namesData = {};
-        let archiveData = {};
-        let votersData = {};
-        let currentDeviceId = null;
-
-        function setCookie(name, value, days) {
-            const date = new Date();
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-            document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + date.toUTCString() + "; path=/";
+    <style>
+        :root {
+            --bg-color: #fdfbf7;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --primary: #48bb78;
+            --primary-hover: #38a169;
+            --accent-yellow: #f6ad55;
+            --accent-yellow-hover: #ed8936;
+            --accent-green: #319795;
+            --danger: #e53e3e;
+            --border-radius: 16px;
+            --box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+            --header-height: 90px;
         }
 
-        function getCookie(name) {
-            const nameEQ = name + "=";
-            const ca = document.cookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
-            }
-            return null;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', sans-serif;
         }
 
-        function getFallbackDeviceId() {
-            let id = localStorage.getItem('beehappy_device_id') || getCookie('beehappy_device_id');
-            if (!id) {
-                id = 'dev_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-            }
-            localStorage.setItem('beehappy_device_id', id);
-            setCookie('beehappy_device_id', id, 365);
-            return id;
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-top: var(--header-height);
         }
 
-        function initDeviceId() {
-            let isLoaded = false;
-
-            const timeout = setTimeout(() => {
-                if (!isLoaded) {
-                    isLoaded = true;
-                    currentDeviceId = getFallbackDeviceId();
-                    render();
-                }
-            }, 1000);
-
-            if (window.FingerprintJS) {
-                FingerprintJS.load()
-                    .then(fp => fp.get())
-                    .then(result => {
-                        if (!isLoaded) {
-                            isLoaded = true;
-                            clearTimeout(timeout);
-                            currentDeviceId = 'fp_' + result.visitorId.replace(/[\.\#\$\/\[\]]/g, "_");
-                            render();
-                        }
-                    })
-                    .catch(err => {
-                        if (!isLoaded) {
-                            isLoaded = true;
-                            clearTimeout(timeout);
-                            currentDeviceId = getFallbackDeviceId();
-                            render();
-                        }
-                    });
-            } else {
-                if (!isLoaded) {
-                    isLoaded = true;
-                    clearTimeout(timeout);
-                    currentDeviceId = getFallbackDeviceId();
-                    render();
-                }
-            }
+        /* DYNAMISCHE KOPFZEILE (Blendet beim Scrollen aus) */
+        .header-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            z-index: 1000;
+            transition: transform 0.3s ease-in-out;
         }
 
-        // Live-Synchronisation mit Firebase
-        db.ref('names').on('value', snapshot => {
-            namesData = snapshot.val() || {};
-            render();
-        });
-
-        db.ref('voters').on('value', snapshot => {
-            votersData = snapshot.val() || {};
-            render();
-        });
-
-        db.ref('archive').on('value', snapshot => {
-            archiveData = snapshot.val() || {};
-            renderArchive();
-        });
-
-        function hasUserVoted() {
-            if (!currentDeviceId) return false;
-            return votersData[currentDeviceId] === true;
+        .header-bar.header-hidden {
+            transform: translateY(-100%);
         }
 
-        function render() {
-            const list = document.getElementById('nameList');
-            const statusMsg = document.getElementById('statusMessage');
-            const addBtn = document.getElementById('addBtn');
-            const nameInput = document.getElementById('nameInput');
-
-            if (!currentDeviceId) {
-                statusMsg.innerHTML = "Lade Abstimmung... Bitte einen Moment gedulden.";
-                addBtn.disabled = true;
-                nameInput.disabled = true;
-                return;
-            }
-
-            const userHasVoted = hasUserVoted();
-
-            if (userHasVoted) {
-                statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
-                addBtn.disabled = true;
-                nameInput.disabled = true;
-            } else {
-                statusMsg.innerHTML = "Du kannst <strong>entweder</strong> 1 Stimme abgeben <strong>oder</strong> 1 neuen Namen vorschlagen.";
-                addBtn.disabled = false;
-                nameInput.disabled = false;
-            }
-
-            list.innerHTML = '';
-            
-            let namesArray = [];
-            for (let id in namesData) {
-                namesArray.push({ id: id, ...namesData[id] });
-            }
-            namesArray.sort((a, b) => b.votes - a.votes);
-
-            if (namesArray.length === 0) {
-                list.innerHTML = '<small>Noch keine Namensvorschläge vorhanden.</small>';
-                return;
-            }
-
-            namesArray.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'card item';
-                div.innerHTML = `
-                    <div>
-                        <strong>${item.text}</strong><br>
-                        <small>Stimmen: ${item.votes}</small>
-                    </div>
-                    <div>
-                        <button onclick="vote('${item.id}')" ${userHasVoted ? 'disabled' : ''}>
-                            ${userHasVoted ? 'Gestimmt' : '+1 Stimme'}
-                        </button>
-                        <button class="super" onclick="buySuperVote('${item.text}')">Super-Stimme (€)</button>
-                    </div>
-                `;
-                list.appendChild(div);
-            });
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
         }
 
-        function renderArchive() {
-            const archiveDiv = document.getElementById('archiveList');
-            let archiveArray = Object.values(archiveData);
-
-            if (archiveArray.length === 0) {
-                archiveDiv.innerHTML = '<small>Noch keine vergangenen Abstimmungen archiviert.</small>';
-                return;
-            }
-
-            archiveDiv.innerHTML = '';
-            archiveArray.reverse().forEach(weekData => {
-                const weekContainer = document.createElement('div');
-                weekContainer.className = 'archive-item';
-                
-                let winnerText = weekData.winner ? `🏆 Gewinner: <strong>${weekData.winner.text}</strong> (${weekData.winner.votes} Stimmen)` : 'Keine Stimmen';
-                
-                weekContainer.innerHTML = `
-                    <strong>Woche vom ${weekData.date}:</strong><br>
-                    ${winnerText}
-                `;
-                archiveDiv.appendChild(weekContainer);
-            });
+        /* VERGRÖSSERTES LOGO OHNE KREIS */
+        .logo-img {
+            width: 75px;
+            height: 75px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            transition: transform 0.2s;
         }
 
-        function addName() {
-            if (hasUserVoted()) {
-                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
-                return;
-            }
-
-            const input = document.getElementById('nameInput');
-            const text = input.value.trim().substring(0, 30);
-
-            if (text === '') {
-                alert("Bitte gib einen Namen ein.");
-                return;
-            }
-
-            const exists = Object.values(namesData).some(item => item.text.toLowerCase() === text.toLowerCase());
-            if (exists) {
-                alert("Dieser Pflanzenname wurde bereits vorgeschlagen! Bitte wähle einen anderen Namen oder stimme für den bestehenden ab.");
-                return;
-            }
-
-            const newRef = db.ref('names').push();
-            newRef.set({ text: text, votes: 1 });
-
-            db.ref('voters/' + currentDeviceId).set(true);
-
-            input.value = '';
+        .logo-img:hover {
+            transform: scale(1.05);
         }
 
-        function vote(id) {
-            if (hasUserVoted()) {
-                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
-                return;
-            }
-
-            const currentVotes = namesData[id] ? namesData[id].votes : 0;
-            db.ref('names/' + id + '/votes').set(currentVotes + 1);
-
-            db.ref('voters/' + currentDeviceId).set(true);
+        .header-title-container {
+            display: flex;
+            flex-direction: column;
         }
 
-        function buySuperVote(name) {
-            alert(`Du wirst nun zur Zahlung weitergeleitet, um eine Super-Stimme für "${name}" zu kaufen und die Pflanze zu sichern.`);
-            window.location.href = "https://paypal.me/DEIN_PROJEKTNAME/2"; 
+        .header-title {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.1;
         }
 
-        // Firebase-Authentifizierung für den Admin-Bereich
-        async function toggleAdminPanel() {
-            const panel = document.getElementById('adminPanel');
-            
-            if (panel.style.display === 'block') {
-                panel.style.display = 'none';
-                return;
-            }
-
-            // Falls bereits eingeloggt, Panel anzeigen
-            if (auth.currentUser) {
-                panel.style.display = 'block';
-                return;
-            }
-
-            // Ansonsten Anmeldedaten abfragen
-            const email = prompt("Bitte Admin E-Mail eingeben:");
-            if (!email) return;
-
-            const password = prompt("Bitte Admin Passwort eingeben:");
-            if (!password) return;
-
-            try {
-                await auth.signInWithEmailAndPassword(email.trim(), password.trim());
-                alert("Erfolgreich als Admin angemeldet!");
-                panel.style.display = 'block';
-            } catch (error) {
-                alert("Anmeldung fehlgeschlagen: " + error.message);
-            }
+        .header-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
         }
 
-        // Zurücksetzen mit abgesichertem Firebase-Schreibzugriff
-        async function resetWeeklyVoting() {
-            if (!auth.currentUser) {
-                alert("Du musst als Admin angemeldet sein, um diese Aktion auszuführen!");
-                return;
-            }
-
-            if (confirm("Möchtest du die aktuelle Woche wirklich beenden? Die Daten werden archiviert und alle Abstimmungen/Sperren zurückgesetzt.")) {
-                try {
-                    let namesArray = Object.values(namesData);
-                    namesArray.sort((a, b) => b.votes - a.votes);
-                    let winner = namesArray.length > 0 ? namesArray[0] : null;
-
-                    const today = new Date().toLocaleDateString('de-DE');
-                    
-                    // Ins Archiv schreiben
-                    await db.ref('archive').push({
-                        date: today,
-                        winner: winner,
-                        allResults: namesData
-                    });
-
-                    // Aktuelle Runde löschen
-                    await db.ref('names').remove();
-                    await db.ref('voters').remove();
-
-                    alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können wieder abstimmen!");
-                } catch (error) {
-                    alert("Fehler beim Zurücksetzen: " + error.message);
-                }
-            }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
-        initDeviceId();
-    </script>
-</body>
-</html>
+        /* MENU / NAVIGATION IN DER KOPFZEILE */
+        .menu-dropdown {
+            position: relative;
+        }
+
+        .menu-btn {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            padding: 0.6rem 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .menu-btn:hover {
+            background: #edf2f7;
+        }
+
+        .menu-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 115%;
+            background: white;
+            min-width: 200px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 1001;
+            border: 1px solid #edf2f7;
+        }
+
+        .menu-content.show {
+            display: block;
+        }
+
+        .menu-content a {
+            color: var(--text-main);
+            padding: 0.8rem 1.2rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+
+        .menu-content a:hover {
+            background: #f7fafc;
+            color: var(--primary);
+        }
+
+        /* MAIN CONTAINER MIT VERGRÖSSERTEM ABSTAND */
+        .container {
+            max-width: 900px;
+            margin: 2.5rem auto;
+            padding: 0 1.5rem;
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 2.5rem;
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2.5rem;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .intro-card {
+            text-align: center;
+            background: linear-gradient(135deg, #ffffff 0%, #f0fff4 100%);
+            border: 1px solid #c6f6d5;
+        }
+
+        .intro-card h2 {
+            font-family: 'Quicksand', sans-serif;
+            color: #276749;
+            margin-bottom: 1rem;
+            font-size: 1.6rem;
+        }
+
+        .intro-card p {
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            font-size: 1.05rem;
+        }
+
+        .rules-badge {
+            display: inline-block;
+            background: #feebc8;
+            color: #7b341e;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+
+        /* EINGABE-FORMULAR */
+        .section-title {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 1.4rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: var(--text-main);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 1rem 1.25rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn {
+            padding: 1rem 1.75rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        /* KONTROLL-ZEILE FÜR SORTIERUNG */
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .sort-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: #edf2f7;
+            padding: 0.4rem 0.8rem;
+            border-radius: 12px;
+        }
+
+        .sort-container label {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .sort-select {
+            background: white;
+            border: 1px solid #cbd5e0;
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-weight: 600;
+            color: var(--text-main);
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* NAMEN-LISTE */
+        .name-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .name-item {
+            background: white;
+            border: 1px solid #edf2f7;
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .name-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        .name-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .name-text {
+            font
