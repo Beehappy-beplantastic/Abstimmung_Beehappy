@@ -759,16 +759,15 @@
        function superVote(id) {
             alert("Weiterleitung zu PayPal für eine Super-Stimme...");
         }
-
-        function openAdminPrompt() {
+function openAdminPrompt() {
             const pass = prompt("Bitte Administrator-Passwort eingeben:");
-            if (pass === "deinPasswort123") { // Passe hier dein Passwort an
+            if (pass === "deinPasswort123") {
                 openModal('modalAdmin');
             } else if (pass !== null) {
                 alert("Falsches Passwort!");
             }
         }
-
+        
         renderNameList();
     </script>
 
