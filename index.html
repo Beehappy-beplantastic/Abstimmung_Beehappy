@@ -39,7 +39,7 @@
     <!-- Vorschlag einreichen -->
     <div class="card">
         <h3>Neuen Namen vorschlagen</h3>
-        <input type="text" id="nameInput" placeholder="Pflanzenname eingeben...">
+        <input type="text" id="nameInput" placeholder="Pflanzenname eingeben (max. 30 Zeichen)..." maxlength="30">
         <button id="addBtn" onclick="addName()">Hinzufügen</button>
     </div>
 
@@ -183,7 +183,7 @@
             const nameInput = document.getElementById('nameInput');
 
             if (!currentDeviceId) {
-                statusMsg.innerHTML = "Lade Gerät... Bitte einen Moment gedulden.";
+                statusMsg.innerHTML = "Lade Abstimmung... Bitte einen Moment gedulden.";
                 addBtn.disabled = true;
                 nameInput.disabled = true;
                 return;
@@ -192,7 +192,7 @@
             const userHasVoted = hasUserVoted();
 
             if (userHasVoted) {
-                statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast von diesem Gerät bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
+                statusMsg.innerHTML = "<strong>Aktion ausgeführt!</strong> Du hast bereits abgestimmt oder einen Namen vorgeschlagen. Mit <em>Super-Stimmen</em> kannst du deinen Favoriten weiterhin unterstützen!";
                 addBtn.disabled = true;
                 nameInput.disabled = true;
             } else {
@@ -259,12 +259,13 @@
 
         function addName() {
             if (hasUserVoted()) {
-                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
+                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
 
             const input = document.getElementById('nameInput');
-            const text = input.value.trim();
+            // Auf max. 30 Zeichen begrenzen
+            const text = input.value.trim().substring(0, 30);
 
             if (text === '') {
                 alert("Bitte gib einen Namen ein.");
@@ -290,7 +291,7 @@
 
         function vote(id) {
             if (hasUserVoted()) {
-                alert("Du hast von diesem Gerät bereits abgestimmt oder einen Vorschlag eingereicht!");
+                alert("Du hast bereits abgestimmt oder einen Vorschlag eingereicht!");
                 return;
             }
 
@@ -342,7 +343,7 @@
                 db.ref('names').remove();
                 db.ref('voters').remove();
 
-                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Geräte können wieder abstimmen!");
+                alert("Die Woche wurde erfolgreich zurückgesetzt. Alle Personen können wieder abstimmen!");
             }
         }
 
