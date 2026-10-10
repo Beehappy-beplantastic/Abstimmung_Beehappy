@@ -273,6 +273,15 @@
             transform: translateY(-1px);
         }
 
+        .btn-danger {
+            background: #c53030;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #9b2c2c;
+        }
+
         .controls-header {
             display: flex;
             justify-content: space-between;
@@ -596,7 +605,6 @@
         <div class="modal-content">
             <button class="close-modal" onclick="closeModal('modalArchive')">&times;</button>
             <h3 class="section-title"><i class="fa-solid fa-box-archive"></i> Gewinner-Archiv</h3>
-            <p>Hier werden die Gewinner stehen, also stimm doch gerne ab.</p>
             <ul id="archiveList" style="margin-top: 1rem; padding-left: 1.2rem;"></ul>
         </div>
     </div>
@@ -655,6 +663,7 @@
         });
 
         let sampleData = [];
+        let archiveData = {};
         let currentDeviceId = null;
         let weeklyActionState = 'loading';
         const weeklyActionDuration = 7 * 24 * 60 * 60 * 1000;
@@ -672,6 +681,14 @@
             console.error('Firebase-Daten konnten nicht geladen werden:', error);
             document.getElementById('nameListContainer').textContent =
                 'Die Abstimmungsdaten konnten nicht geladen werden. Bitte Verbindung und Firebase-Regeln prüfen.';
+        });
+
+        database.ref('archive').on('value', snapshot => {
+            archiveData = snapshot.val() || {};
+            renderArchive();
+        }, error => {
+            console.error('Archiv konnte nicht geladen werden:', error);
+            document.getElementById('archiveList').textContent = 'Das Archiv konnte nicht geladen werden.';
         });
 
         let lastScrollTop = 0;
@@ -782,6 +799,31 @@
 
         function escapeHtml(text) {
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function renderArchive() {
+            const archiveList = document.getElementById('archiveList');
+            const entries = Object.entries(archiveData).sort(([firstKey], [secondKey]) =>
+                secondKey.localeCompare(firstKey)
+            );
+            archiveList.replaceChildren();
+
+            if (entries.length === 0) {
+                const emptyItem = document.createElement('li');
+                emptyItem.textContent = 'Noch keine vergangenen Abstimmungen archiviert.';
+                archiveList.appendChild(emptyItem);
+                return;
+            }
+
+            entries.forEach(([, week]) => {
+                const item = document.createElement('li');
+                const winnerName = week.winner && (week.winner.name || week.winner.text);
+                const winnerVotes = week.winner ? Number(week.winner.votes) || 0 : 0;
+                item.textContent = winnerName
+                    ? `${week.date || 'Vergangene Woche'}: Gewinner ${winnerName} (${winnerVotes} Stimmen)`
+                    : `${week.date || 'Vergangene Woche'}: Keine Stimmen`;
+                archiveList.appendChild(item);
+            });
         }
 
         function handleSuggestion(e) {
@@ -969,6 +1011,48 @@ function openAdminPrompt() {
             }
         }
 
+        async function endWeekAndArchiveWinner() {
+            if (!isAdminUser(auth.currentUser)) return;
+            if (!window.confirm('Woche beenden? Der Gewinner wird archiviert und Namen sowie Wochen-Sperren werden zurückgesetzt.')) return;
+
+            const endWeekButton = document.getElementById('endWeekButton');
+            endWeekButton.disabled = true;
+            try {
+                const namesSnapshot = await database.ref('names').once('value');
+                const names = namesSnapshot.val() || {};
+                const results = Object.entries(names).map(([id, item]) => ({
+                    id,
+                    name: item.name || item.text || '',
+                    votes: Number(item.votes) || 0,
+                    timestamp: Number(item.timestamp) || 0
+                })).sort((first, second) => second.votes - first.votes);
+                const winner = results.length > 0
+                    ? { name: results[0].name, text: results[0].name, votes: results[0].votes }
+                    : null;
+                const archiveKey = database.ref('archive').push().key;
+                const updates = {
+                    [`archive/${archiveKey}`]: {
+                        date: new Date().toLocaleDateString('de-DE'),
+                        createdAt: Date.now(),
+                        winner,
+                        allResults: names
+                    },
+                    names: null,
+                    voters: null
+                };
+
+                await database.ref().update(updates);
+                alert(winner
+                    ? `Woche beendet. Gewinner: ${winner.name} (${winner.votes} Stimmen).`
+                    : 'Woche beendet. Es gab keine Namensvorschläge.');
+            } catch (error) {
+                console.error('Woche konnte nicht archiviert werden:', error);
+                alert('Die Woche konnte nicht beendet werden. Prüfe die Firebase-Datenbankregeln.');
+            } finally {
+                endWeekButton.disabled = false;
+            }
+        }
+
         async function signOutAdmin() {
             if (!isAdminUser(auth.currentUser)) return;
             try {
@@ -991,9 +1075,11 @@ function openAdminPrompt() {
             <h3 class="section-title"><i class="fa-solid fa-user-shield"></i> Admin-Bereich</h3>
             <p>Willkommen im Administrations-Bereich!</p>
             <br>
-            <!-- Hier kannst du deine Admin-Funktionen oder Buttons platzieren -->
-            <p>Hier kannst du Vorschläge verwalten oder das Wöchentliche Voting zurücksetzen.</p>
+            <p>Die Wochen-Sperren können separat zurückgesetzt oder die Woche mit Gewinner archiviert werden.</p>
             <div id="adminActions" hidden>
+                <button class="btn btn-danger" id="endWeekButton" type="button" onclick="endWeekAndArchiveWinner()">
+                    <i class="fa-solid fa-flag-checkered"></i> Abstimmung beenden & Gewinner archivieren
+                </button>
                 <button class="btn btn-primary" id="resetWeeklyActionsButton" type="button" onclick="resetWeeklyActions()">
                     <i class="fa-solid fa-rotate-left"></i> Wochenaktionen zurücksetzen
                 </button>
