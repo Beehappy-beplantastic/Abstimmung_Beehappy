@@ -632,6 +632,27 @@
             firebase.initializeApp(firebaseConfig);
         }
         const database = firebase.database();
+        const auth = firebase.auth();
+        const adminEmail = 'lisa32180@gmx.de';
+
+        function isAdminUser(user) {
+            return Boolean(user && user.email && user.email.toLowerCase() === adminEmail);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(user => {
+                const adminActions = document.getElementById('adminActions');
+                const isAdmin = isAdminUser(user);
+                adminActions.hidden = !isAdmin;
+
+                if (isAdmin) {
+                    closeModal('modalAdminLogin');
+                    openModal('modalAdmin');
+                } else {
+                    closeModal('modalAdmin');
+                }
+            });
+        });
 
         let sampleData = [];
         let currentDeviceId = null;
@@ -889,6 +910,10 @@
             alert("Weiterleitung zu PayPal für eine Super-Stimme...");
         }
 function openAdminPrompt() {
+            if (isAdminUser(auth.currentUser)) {
+                openModal('modalAdmin');
+                return;
+            }
             document.getElementById('adminLoginForm').reset();
             document.getElementById('adminLoginError').textContent = '';
             openModal('modalAdminLogin');
@@ -901,7 +926,13 @@ function openAdminPrompt() {
             const errorMessage = document.getElementById('adminLoginError');
 
             try {
-                await firebase.auth().signInWithEmailAndPassword(email, password);
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                const credential = await auth.signInWithEmailAndPassword(email, password);
+                if (!isAdminUser(credential.user)) {
+                    await auth.signOut();
+                    errorMessage.textContent = 'Dieses Konto hat keine Admin-Berechtigung.';
+                    return;
+                }
                 closeModal('modalAdminLogin');
                 openModal('modalAdmin');
             } catch (error) {
@@ -921,9 +952,27 @@ function openAdminPrompt() {
             }
         }
 
-        async function signOutAdmin() {
+        async function resetWeeklyActions() {
+            if (!isAdminUser(auth.currentUser)) return;
+            if (!window.confirm('Alle wöchentlichen Abstimmungs- und Vorschlags-Sperren zurücksetzen?')) return;
+
+            const resetButton = document.getElementById('resetWeeklyActionsButton');
+            resetButton.disabled = true;
             try {
-                await firebase.auth().signOut();
+                await database.ref('voters').remove();
+                alert('Alle wöchentlichen Aktionen wurden zurückgesetzt.');
+            } catch (error) {
+                console.error('Wöchentliche Aktionen konnten nicht zurückgesetzt werden:', error);
+                alert('Zurücksetzen fehlgeschlagen. Prüfe die Firebase-Datenbankregeln.');
+            } finally {
+                resetButton.disabled = false;
+            }
+        }
+
+        async function signOutAdmin() {
+            if (!isAdminUser(auth.currentUser)) return;
+            try {
+                await auth.signOut();
                 closeModal('modalAdmin');
             } catch (error) {
                 console.error('Firebase-Abmeldung fehlgeschlagen:', error);
@@ -944,9 +993,14 @@ function openAdminPrompt() {
             <br>
             <!-- Hier kannst du deine Admin-Funktionen oder Buttons platzieren -->
             <p>Hier kannst du Vorschläge verwalten oder das Wöchentliche Voting zurücksetzen.</p>
-            <button class="btn btn-primary" type="button" onclick="signOutAdmin()">
-                <i class="fa-solid fa-right-from-bracket"></i> Abmelden
-            </button>
+            <div id="adminActions" hidden>
+                <button class="btn btn-primary" id="resetWeeklyActionsButton" type="button" onclick="resetWeeklyActions()">
+                    <i class="fa-solid fa-rotate-left"></i> Wochenaktionen zurücksetzen
+                </button>
+                <button class="btn btn-primary" type="button" onclick="signOutAdmin()">
+                    <i class="fa-solid fa-right-from-bracket"></i> Abmelden
+                </button>
+            </div>
         </div>
     </div>
 
