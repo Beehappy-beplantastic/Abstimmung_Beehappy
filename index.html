@@ -906,7 +906,18 @@ function openAdminPrompt() {
                 openModal('modalAdmin');
             } catch (error) {
                 console.error('Firebase-Anmeldung fehlgeschlagen:', error);
-                errorMessage.textContent = 'Anmeldung fehlgeschlagen. Prüfe E-Mail, Passwort und Firebase-Authentifizierung.';
+                const authErrorMessages = {
+                    'auth/invalid-credential': 'E-Mail oder Passwort ist falsch.',
+                    'auth/invalid-login-credentials': 'E-Mail oder Passwort ist falsch.',
+                    'auth/user-not-found': 'Für diese E-Mail-Adresse wurde kein Benutzer gefunden.',
+                    'auth/wrong-password': 'Das Passwort ist falsch.',
+                    'auth/invalid-email': 'Die E-Mail-Adresse ist ungültig.',
+                    'auth/operation-not-allowed': 'E-Mail-/Passwort-Anmeldung ist in Firebase nicht aktiviert.',
+                    'auth/too-many-requests': 'Zu viele Anmeldeversuche. Bitte später erneut versuchen.',
+                    'auth/network-request-failed': 'Firebase ist nicht erreichbar. Prüfe die Internetverbindung.'
+                };
+                errorMessage.textContent = authErrorMessages[error.code]
+                    || `Anmeldung fehlgeschlagen (${error.code || 'unbekannter Fehler'}).`;
             }
         }
 
