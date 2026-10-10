@@ -858,9 +858,6 @@
         }
 
         async function initializeDeviceId() {
-            const fallbackPromise = new Promise(resolve => {
-                setTimeout(() => resolve(getFallbackDeviceId()), 1500);
-            });
             const fingerprintPromise = window.FingerprintJS
                 ? FingerprintJS.load()
                     .then(agent => agent.get())
@@ -868,7 +865,7 @@
                     .catch(() => getFallbackDeviceId())
                 : Promise.resolve(getFallbackDeviceId());
 
-            currentDeviceId = await Promise.race([fingerprintPromise, fallbackPromise]);
+            currentDeviceId = await fingerprintPromise;
             const voterRef = database.ref(`voters/${currentDeviceId}`);
             voterRef.on('value', snapshot => {
                 const action = snapshot.val();
