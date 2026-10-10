@@ -290,6 +290,17 @@
             transform: translateY(-1px);
         }
 
+        .btn-donation {
+            margin-top: 1rem;
+            background: #d69e2e;
+            color: #fff;
+        }
+
+        .btn-donation:hover {
+            background: #b7791f;
+            transform: translateY(-1px);
+        }
+
         .btn-danger {
             background: #c53030;
             color: white;
@@ -573,6 +584,11 @@
             <div class="rules-badge">
                 <i class="fa-solid fa-clock"></i> 1 freie Aktion pro Woche (Name vorschlagen ODER abstimmen)
             </div>
+            <div>
+                <button class="btn btn-donation" type="button" onclick="openDonationLink()">
+                    <i class="fa-solid fa-hand-holding-heart"></i> Für den Abiball spenden
+                </button>
+            </div>
             <p id="actionStatus" role="status" style="margin-top: 1rem;"></p>
         </section>
 
@@ -672,6 +688,7 @@
         const database = firebase.database();
         const auth = firebase.auth();
         const adminEmail = 'lisa32180@gmx.de';
+        const donationUrl = 'https://paypal.me/DEIN_PROJEKTNAME/2';
 
         function isAdminUser(user) {
             return Boolean(user && user.email && user.email.toLowerCase() === adminEmail);
@@ -978,8 +995,12 @@
             }, error => reportActionError(error));
         }
 
-       function superVote(id) {
-            alert("Weiterleitung zu PayPal für eine Super-Stimme...");
+        function openDonationLink() {
+            window.open(donationUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        function superVote(id) {
+            openDonationLink();
         }
 function openAdminPrompt() {
             if (isAdminUser(auth.currentUser)) {
