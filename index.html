@@ -534,6 +534,7 @@
             <div class="rules-badge">
                 <i class="fa-solid fa-clock"></i> 1 freie Aktion pro Woche (Name vorschlagen ODER abstimmen)
             </div>
+            <p id="actionStatus" role="status" style="margin-top: 1rem;"></p>
         </section>
 
         <section class="card">
@@ -633,6 +634,9 @@
         const database = firebase.database();
 
         let sampleData = [];
+        let currentDeviceId = null;
+        let weeklyActionState = 'loading';
+        const weeklyActionDuration = 7 * 24 * 60 * 60 * 1000;
 
         database.ref('names').on('value', snapshot => {
             const names = snapshot.val() || {};
@@ -704,6 +708,23 @@
         function renderNameList() {
             const container = document.getElementById('nameListContainer');
             const sortCriteria = document.getElementById('sortSelect').value;
+            const actionStatus = document.getElementById('actionStatus');
+            const nameInput = document.getElementById('nameInput');
+            const submitButton = document.querySelector('#suggestForm button[type="submit"]');
+            const canUseWeeklyAction = weeklyActionState === 'available';
+
+            if (weeklyActionState === 'loading') {
+                actionStatus.textContent = 'Prüfe deine wöchentliche Aktion ...';
+            } else if (weeklyActionState === 'available') {
+                actionStatus.textContent = 'Du kannst noch einmal abstimmen oder einen Namen vorschlagen.';
+            } else if (weeklyActionState === 'used') {
+                actionStatus.textContent = 'Deine freie Aktion für diese Woche ist bereits verbraucht.';
+            } else {
+                actionStatus.textContent = 'Die Limitierung konnte nicht geprüft werden. Bitte lade die Seite erneut.';
+            }
+
+            nameInput.disabled = !canUseWeeklyAction;
+            submitButton.disabled = !canUseWeeklyAction;
             
             let sortedData = [...sampleData];
 
@@ -726,8 +747,8 @@
                         <span class="vote-count"><i class="fa-solid fa-heart" style="color: #e53e3e;"></i> ${item.votes} Stimmen</span>
                     </div>
                     <div class="vote-actions">
-                        <button class="btn-vote" onclick="vote('${item.id}')">
-                            <i class="fa-solid fa-thumbs-up"></i> Abstimmen
+                        <button class="btn-vote" onclick="vote('${item.id}')" ${canUseWeeklyAction ? '' : 'disabled'}>
+                            <i class="fa-solid fa-thumbs-up"></i> ${weeklyActionState === 'used' ? 'Aktion genutzt' : 'Abstimmen'}
                         </button>
                         <button class="btn-supervote" onclick="superVote('${item.id}')">
                             <i class="fa-solid fa-star"></i> Super-Stimme
@@ -746,28 +767,125 @@
             e.preventDefault();
             const input = document.getElementById('nameInput');
             const val = input.value.trim();
-            if(val) {
-                database.ref('names').push({
+            if (!val || weeklyActionState !== 'available') return;
+
+            reserveWeeklyAction('suggestion').then(reservation => {
+                if (!reservation) return;
+                return database.ref('names').push({
                     name: val,
                     votes: 1,
                     timestamp: Date.now()
                 }).then(() => {
                     input.value = '';
                     alert('Vorschlag erfolgreich eingereicht!');
+                }).catch(async error => {
+                    await releaseWeeklyAction(reservation);
+                    throw error;
                 }).catch(error => {
                     console.error('Vorschlag konnte nicht gespeichert werden:', error);
                     alert('Der Vorschlag konnte nicht gespeichert werden. Bitte Firebase-Verbindung und Datenbankregeln prüfen.');
                 });
-            }
+            }).catch(error => reportActionError(error));
         }
 
         function vote(id) {
-            database.ref(`names/${id}/votes`).transaction(currentVotes =>
-                (Number(currentVotes) || 0) + 1
-            ).catch(error => {
-                console.error('Stimme konnte nicht gespeichert werden:', error);
-                alert('Deine Stimme konnte nicht gespeichert werden. Bitte Firebase-Verbindung und Datenbankregeln prüfen.');
+            if (weeklyActionState !== 'available') return;
+
+            reserveWeeklyAction('vote').then(reservation => {
+                if (!reservation) return;
+                return database.ref(`names/${id}/votes`).transaction(currentVotes =>
+                    (Number(currentVotes) || 0) + 1
+                ).catch(async error => {
+                    await releaseWeeklyAction(reservation);
+                    throw error;
+                }).catch(error => {
+                    console.error('Stimme konnte nicht gespeichert werden:', error);
+                    alert('Deine Stimme konnte nicht gespeichert werden. Bitte Firebase-Verbindung und Datenbankregeln prüfen.');
+                });
+            }).catch(error => reportActionError(error));
+        }
+
+        function reserveWeeklyAction(action) {
+            if (!currentDeviceId || weeklyActionState !== 'available') {
+                return Promise.resolve(null);
+            }
+
+            const now = Date.now();
+            const expiresAt = now + weeklyActionDuration;
+            return database.ref(`voters/${currentDeviceId}`).transaction(current => {
+                if (current === true || (current && Number(current.expiresAt) > now)) {
+                    return;
+                }
+                return { action, expiresAt };
+            }).then(result => {
+                if (!result.committed) {
+                    weeklyActionState = 'used';
+                    renderNameList();
+                    alert('Du hast deine freie Aktion für diese Woche bereits genutzt.');
+                    return null;
+                }
+                weeklyActionState = 'used';
+                renderNameList();
+                return expiresAt;
             });
+        }
+
+        function releaseWeeklyAction(expiresAt) {
+            return database.ref(`voters/${currentDeviceId}`).transaction(current => {
+                if (current && Number(current.expiresAt) === expiresAt) return null;
+                return;
+            });
+        }
+
+        function reportActionError(error) {
+            console.error('Wöchentliche Aktion konnte nicht reserviert werden:', error);
+            weeklyActionState = 'error';
+            renderNameList();
+            alert('Die Limitierung konnte nicht mit Firebase geprüft werden. Bitte die Regeln für den Datenbankpfad "voters" prüfen.');
+        }
+
+        function getFallbackDeviceId() {
+            try {
+                let deviceId = localStorage.getItem('beehappy_device_id');
+                if (!deviceId) {
+                    deviceId = 'dev_' + Math.random().toString(36).slice(2) + '_' + Date.now();
+                    localStorage.setItem('beehappy_device_id', deviceId);
+                }
+                return deviceId;
+            } catch (error) {
+                return 'dev_' + Math.random().toString(36).slice(2) + '_' + Date.now();
+            }
+        }
+
+        async function initializeDeviceId() {
+            const fallbackPromise = new Promise(resolve => {
+                setTimeout(() => resolve(getFallbackDeviceId()), 1500);
+            });
+            const fingerprintPromise = window.FingerprintJS
+                ? FingerprintJS.load()
+                    .then(agent => agent.get())
+                    .then(result => 'fp_' + result.visitorId.replace(/[.#$/\[\]]/g, '_'))
+                    .catch(() => getFallbackDeviceId())
+                : Promise.resolve(getFallbackDeviceId());
+
+            currentDeviceId = await Promise.race([fingerprintPromise, fallbackPromise]);
+            const voterRef = database.ref(`voters/${currentDeviceId}`);
+            voterRef.on('value', snapshot => {
+                const action = snapshot.val();
+                if (action === true) {
+                    weeklyActionState = 'used';
+                    renderNameList();
+                    voterRef.transaction(current => current === true
+                        ? { action: 'legacy', expiresAt: Date.now() + weeklyActionDuration }
+                        : undefined
+                    ).catch(error => reportActionError(error));
+                    return;
+                }
+                weeklyActionState = action === true || (action && Number(action.expiresAt) > Date.now())
+                    ? 'used'
+                    : 'available';
+                renderNameList();
+            }, error => reportActionError(error));
         }
 
        function superVote(id) {
@@ -806,6 +924,7 @@ function openAdminPrompt() {
         }
         
         renderNameList();
+        initializeDeviceId().catch(error => reportActionError(error));
     </script>
 
     <!-- Das Modal gehört AUSSERHALB von <script> hin -->
