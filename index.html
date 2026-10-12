@@ -816,7 +816,7 @@
         let archiveData = {};
         const currentPlant = {
             title: 'Jungpflanzen',
-            species: 'Art noch nicht bestimmt',
+            species: 'Verschiedene Arten',
             image: 'bilder/aktuelle-pflanze/aktuelle-pflanze.JPG'
         };
         const plantGallery = [
@@ -1057,12 +1057,9 @@
                 }).then(() => {
                     input.value = '';
                     alert('Vorschlag erfolgreich eingereicht!');
-                }).catch(async error => {
-                    await releaseWeeklyAction(reservation);
-                    throw error;
                 }).catch(error => {
                     console.error('Vorschlag konnte nicht gespeichert werden:', error);
-                    alert('Der Vorschlag konnte nicht gespeichert werden. Bitte Firebase-Verbindung und Datenbankregeln prüfen.');
+                    alert('Der Vorschlag konnte nicht gespeichert werden. Deine Wochenaktion bleibt vorsorglich reserviert. Bitte prüfe die Verbindung oder wende dich an den Admin.');
                 });
             }).catch(error => reportActionError(error));
         }
@@ -1074,12 +1071,9 @@
                 if (!reservation) return;
                 return database.ref(`names/${id}/votes`).transaction(currentVotes =>
                     (Number(currentVotes) || 0) + 1
-                ).catch(async error => {
-                    await releaseWeeklyAction(reservation);
-                    throw error;
-                }).catch(error => {
+                ).catch(error => {
                     console.error('Stimme konnte nicht gespeichert werden:', error);
-                    alert('Deine Stimme konnte nicht gespeichert werden. Bitte Firebase-Verbindung und Datenbankregeln prüfen.');
+                    alert('Deine Stimme konnte nicht gespeichert werden. Deine Wochenaktion bleibt vorsorglich reserviert. Bitte prüfe die Verbindung oder wende dich an den Admin.');
                 });
             }).catch(error => reportActionError(error));
         }
@@ -1106,13 +1100,6 @@
                 weeklyActionState = 'used';
                 renderNameList();
                 return expiresAt;
-            });
-        }
-
-        function releaseWeeklyAction(expiresAt) {
-            return database.ref(`voters/${currentDeviceId}`).transaction(current => {
-                if (current && Number(current.expiresAt) === expiresAt) return null;
-                return;
             });
         }
 
