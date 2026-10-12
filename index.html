@@ -225,6 +225,75 @@
             font-size: 1.05rem;
         }
 
+        .current-plant-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .current-plant-image {
+            display: block;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            border-radius: 12px;
+            background: #edf2f0;
+        }
+
+        .current-plant-name {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 1.4rem;
+            color: #276749;
+            margin-bottom: 0.4rem;
+        }
+
+        .current-plant-species {
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .gallery-modal-content {
+            max-width: 850px;
+        }
+
+        .plant-gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .plant-gallery-item {
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        .plant-gallery-image {
+            display: block;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            background: #edf2f0;
+        }
+
+        .plant-gallery-caption {
+            padding: 0.75rem;
+        }
+
+        .plant-gallery-caption strong,
+        .plant-gallery-caption span {
+            display: block;
+        }
+
+        .plant-gallery-caption span {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.2rem;
+        }
+
         .rules-badge {
             display: inline-block;
             background: #feebc8;
@@ -532,6 +601,9 @@
                 align-items: flex-start;
                 gap: 1rem;
             }
+            .current-plant-layout {
+                grid-template-columns: 1fr;
+            }
             .vote-actions {
                 width: 100%;
             }
@@ -547,9 +619,9 @@
 
     <header class="header-bar" id="headerBar">
         <div class="header-left">
-            <img src="bee-logo.jpeg" alt="Beehappy Logo" class="logo-img" id="headerLogo">
+            <img src="image.png" alt="Bee Happy Logo" class="logo-img" id="headerLogo">
             <div class="header-title-container">
-                <span class="header-title">Beehappy</span>
+                <span class="header-title">Bee happy</span>
                 <span class="header-subtitle">Pflanzen-Abstimmung</span>
             </div>
         </div>
@@ -566,7 +638,7 @@
                 <div class="menu-content" id="menuContent">
                     <a href="#" onclick="openModal('modalRules')"><i class="fa-solid fa-book-open"></i> Regeln</a>
                     <a href="#" onclick="openModal('modalProject')"><i class="fa-solid fa-circle-info"></i> Das Projekt</a>
-                    <a href="#" onclick="openModal('modalArchive')"><i class="fa-solid fa-box-archive"></i> Archiv</a>
+                    <a href="#" onclick="openModal('modalPlantGallery'); return false;"><i class="fa-solid fa-images"></i> Bildergalerie</a>
                     <a href="#" onclick="openModal('modalImpressum')"><i class="fa-solid fa-section"></i> Impressum</a>
                 </div>
             </div>
@@ -590,6 +662,17 @@
                 </button>
             </div>
             <p id="actionStatus" role="status" style="margin-top: 1rem;"></p>
+        </section>
+
+        <section class="card" aria-labelledby="currentPlantHeading">
+            <div class="current-plant-layout">
+                <img class="current-plant-image" id="currentPlantImage" alt="">
+                <div>
+                    <h2 class="section-title" id="currentPlantHeading"><i class="fa-solid fa-seedling"></i> Unsere aktuelle Pflanze</h2>
+                    <h3 class="current-plant-name" id="currentPlantName"></h3>
+                    <p class="current-plant-species" id="currentPlantSpecies"></p>
+                </div>
+            </div>
         </section>
 
         <section class="card">
@@ -644,6 +727,14 @@
             <h3 class="section-title"><i class="fa-solid fa-circle-info"></i> Über Beehappy</h3>
             <p>Wir sind ein Team aus drei Schülern im Rahmen des Seminarkurses Wirtschaftswissenschaften (G_24_1)[cite: 1]. Unser Ziel ist es, einige der 17 SDGs zu unterstützen und gleichzeitig Mittel für unseren Abiball zu sammeln[cite: 1].</p><br>
             <p>Die Durchführung des Projekts lag allein in unserer Hand, jedoch möchten wir uns ganz herzlich bei unseren Alphatestern von Saarhexerich bedanken. Vielen Dank[cite: 1].</p>
+        </div>
+    </div>
+
+    <div class="modal" id="modalPlantGallery">
+        <div class="modal-content gallery-modal-content">
+            <button class="close-modal" onclick="closeModal('modalPlantGallery')" aria-label="Galerie schließen">&times;</button>
+            <h3 class="section-title"><i class="fa-solid fa-images"></i> Pflanzen-Bildergalerie</h3>
+            <div class="plant-gallery-grid" id="plantGalleryGrid"></div>
         </div>
     </div>
 
@@ -711,6 +802,14 @@
 
         let sampleData = [];
         let archiveData = {};
+        const plantGallery = [
+            {
+                title: 'Jungpflanzen',
+                species: 'Art noch nicht bestimmt',
+                image: 'Abgabe_07.10_skww_beehappy/DSC_1274.JPG',
+                current: true
+            }
+        ];
         let currentDeviceId = null;
         let weeklyActionState = 'loading';
         const weeklyActionDuration = 7 * 24 * 60 * 60 * 1000;
@@ -846,6 +945,41 @@
 
         function escapeHtml(text) {
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function renderPlantGallery() {
+            const currentPlant = plantGallery.find(plant => plant.current) || plantGallery[0];
+            const currentImage = document.getElementById('currentPlantImage');
+            const galleryGrid = document.getElementById('plantGalleryGrid');
+
+            if (currentPlant) {
+                currentImage.src = currentPlant.image;
+                currentImage.alt = `${currentPlant.title} - ${currentPlant.species}`;
+                document.getElementById('currentPlantName').textContent = currentPlant.title;
+                document.getElementById('currentPlantSpecies').textContent = `Art: ${currentPlant.species}`;
+            }
+
+            galleryGrid.replaceChildren();
+            plantGallery.forEach(plant => {
+                const item = document.createElement('article');
+                item.className = 'plant-gallery-item';
+
+                const image = document.createElement('img');
+                image.className = 'plant-gallery-image';
+                image.src = plant.image;
+                image.alt = `${plant.title} - ${plant.species}`;
+
+                const caption = document.createElement('div');
+                caption.className = 'plant-gallery-caption';
+                const title = document.createElement('strong');
+                title.textContent = plant.title;
+                const species = document.createElement('span');
+                species.textContent = `Art: ${plant.species}`;
+
+                caption.append(title, species);
+                item.append(image, caption);
+                galleryGrid.appendChild(item);
+            });
         }
 
         function renderArchive() {
@@ -1115,6 +1249,7 @@ function openAdminPrompt() {
             }
         }
         
+        renderPlantGallery();
         renderNameList();
         initializeDeviceId().catch(error => reportActionError(error));
     </script>
