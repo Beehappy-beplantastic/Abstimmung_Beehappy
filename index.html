@@ -279,6 +279,18 @@
             background: #edf2f0;
         }
 
+        .plant-gallery-placeholder {
+            display: flex;
+            aspect-ratio: 4 / 3;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: #edf2f0;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 700;
+        }
+
         .plant-gallery-caption {
             padding: 0.75rem;
         }
@@ -802,12 +814,31 @@
 
         let sampleData = [];
         let archiveData = {};
+        const currentPlant = {
+            title: 'Jungpflanzen',
+            species: 'Art noch nicht bestimmt',
+            image: 'bilder/aktuelle-pflanze/aktuelle-pflanze.JPG'
+        };
         const plantGallery = [
             {
-                title: 'Jungpflanzen',
-                species: 'Art noch nicht bestimmt',
-                image: 'Abgabe_07.10_skww_beehappy/DSC_1274.JPG',
-                current: true
+                title: 'Anpflanzen und Pflanzenarten',
+                species: 'Verschiedene Pflanzenarten',
+                image: 'bilder/galerie/pflanze-01.JPG'
+            },
+            {
+                title: 'Pflanze 2',
+                species: 'Art eintragen',
+                image: 'bilder/galerie/pflanze-02.JPG'
+            },
+            {
+                title: 'Pflanze 3',
+                species: 'Art eintragen',
+                image: 'bilder/galerie/pflanze-03.JPG'
+            },
+            {
+                title: 'Pflanze 4',
+                species: 'Art eintragen',
+                image: 'bilder/galerie/pflanze-04.JPG'
             }
         ];
         let currentDeviceId = null;
@@ -948,16 +979,13 @@
         }
 
         function renderPlantGallery() {
-            const currentPlant = plantGallery.find(plant => plant.current) || plantGallery[0];
             const currentImage = document.getElementById('currentPlantImage');
             const galleryGrid = document.getElementById('plantGalleryGrid');
 
-            if (currentPlant) {
-                currentImage.src = currentPlant.image;
-                currentImage.alt = `${currentPlant.title} - ${currentPlant.species}`;
-                document.getElementById('currentPlantName').textContent = currentPlant.title;
-                document.getElementById('currentPlantSpecies').textContent = `Art: ${currentPlant.species}`;
-            }
+            currentImage.src = currentPlant.image;
+            currentImage.alt = `${currentPlant.title} - ${currentPlant.species}`;
+            document.getElementById('currentPlantName').textContent = currentPlant.title;
+            document.getElementById('currentPlantSpecies').textContent = `Art: ${currentPlant.species}`;
 
             galleryGrid.replaceChildren();
             plantGallery.forEach(plant => {
@@ -968,6 +996,13 @@
                 image.className = 'plant-gallery-image';
                 image.src = plant.image;
                 image.alt = `${plant.title} - ${plant.species}`;
+                image.addEventListener('error', () => {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'plant-gallery-placeholder';
+                    placeholder.textContent = 'Bild folgt';
+                    image.replaceWith(placeholder);
+                }, { once: true });
+                item.appendChild(image);
 
                 const caption = document.createElement('div');
                 caption.className = 'plant-gallery-caption';
@@ -977,7 +1012,7 @@
                 species.textContent = `Art: ${plant.species}`;
 
                 caption.append(title, species);
-                item.append(image, caption);
+                item.appendChild(caption);
                 galleryGrid.appendChild(item);
             });
         }
