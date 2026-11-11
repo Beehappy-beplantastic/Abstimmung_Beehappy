@@ -832,21 +832,6 @@
             <div style="margin-top: 1rem; line-height: 1.8;">
                 <p><strong>Ziel:</strong> <span id="paymentTarget"></span></p>
                 <p><strong>Paket/Betrag:</strong> <span id="paymentAmount"></span></p>
-                <section id="donationLoginPanel" hidden style="margin: 1rem 0;">
-                    <p>Für die Spenden-Zahlungsdetails bitte mit dem BeeHappy-Spendenkonto anmelden. Verwende dafür nicht dein Schulhomepage-Passwort.</p>
-                    <div id="donationLoginForm">
-                        <label for="donationUsername">Benutzername</label>
-                        <input id="donationUsername" type="text" autocomplete="username" value="OSZCottbus">
-                        <label for="donationPassword">Passwort</label>
-                        <input id="donationPassword" type="password" autocomplete="current-password">
-                        <button class="btn btn-primary" type="button" onclick="handleDonationSignIn()">Spendenkonto anmelden</button>
-                    </div>
-                    <div id="donationAccountControls" hidden>
-                        <p id="donationAccountStatus"></p>
-                        <button class="btn" type="button" onclick="signOutDonationAccount()">Abmelden</button>
-                    </div>
-                    <p id="donationLoginStatus" role="status"></p>
-                </section>
                 <div id="bankTransferDetails">
                     <p><strong>Empfänger:</strong> <span id="paymentRecipient"></span></p>
                     <p><strong>IBAN:</strong> <code id="paymentIban"></code></p>
@@ -918,12 +903,10 @@
         const database = firebase.database();
         const auth = firebase.auth();
         const adminEmail = 'lisa32180@gmx.de';
-        const donationLoginUsername = 'OSZCottbus';
-        const donationLoginEmail = 'oszcottbus@auth.beehappy-projekt.de';
-        const donationApp = firebase.apps.find(app => app.name === 'donationAccess')
-            || firebase.initializeApp(firebaseConfig, 'donationAccess');
-        const donationAuth = firebase.auth(donationApp);
-        const donationDatabase = firebase.database(donationApp);
+        const paymentApp = firebase.apps.find(app => app.name === 'paymentAccess')
+            || firebase.initializeApp(firebaseConfig, 'paymentAccess');
+        const paymentAuth = firebase.auth(paymentApp);
+        const paymentDatabase = firebase.database(paymentApp);
         const paymentSettings = {
             donations: {}
         };
@@ -939,11 +922,31 @@
         let userSupervoteOrders = {};
         let adminSupervoteOrdersRef = null;
         let adminSupervoteOrders = {};
+        let paymentAccessPromise = null;
         let weeklyActionState = 'signed-out';
         const weeklyActionDuration = 7 * 24 * 60 * 60 * 1000;
 
         function isAdminUser(user) {
             return Boolean(user && user.email && user.email.toLowerCase() === adminEmail);
+        }
+
+        function isEmailVerifiedUser(user) {
+            return Boolean(user && user.emailVerified);
+        }
+
+        async function ensurePaymentAccess() {
+            if (paymentAuth.currentUser) return paymentAuth.currentUser;
+            if (!paymentAccessPromise) {
+                paymentAccessPromise = (async () => {
+                    await paymentAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                    if (paymentAuth.currentUser) return paymentAuth.currentUser;
+                    const credential = await paymentAuth.signInAnonymously();
+                    return credential.user;
+                })().finally(() => {
+                    paymentAccessPromise = null;
+                });
+            }
+            return paymentAccessPromise;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -961,24 +964,9 @@
                 }
                 handleAuthStateChanged(user);
             });
-            donationAuth.onAuthStateChanged(user => {
-                const isDonationAccount = Boolean(user
-                    && user.email
-                    && user.email.toLowerCase() === donationLoginEmail);
-                document.getElementById('donationLoginForm').hidden = isDonationAccount;
-                document.getElementById('donationAccountControls').hidden = !isDonationAccount;
-                document.getElementById('donationAccountStatus').textContent = isDonationAccount
-                    ? `Angemeldet als ${donationLoginUsername}.`
-                    : '';
-                if (currentPayment && currentPayment.type === 'donation') {
-                    if (isDonationAccount) {
-                        loadDonationPaymentDetails();
-                    } else {
-                        currentPayment.transferDetails = null;
-                        document.getElementById('bankTransferDetails').hidden = true;
-                        document.getElementById('donationLoginStatus').textContent =
-                            'Melde dich mit dem BeeHappy-Spendenkonto an, um die Zahlungsdaten aufzurufen.';
-                    }
+            paymentAuth.onAuthStateChanged(user => {
+                if (!isEmailVerifiedUser(auth.currentUser)) {
+                    subscribeToUserSupervoteOrders(user, paymentDatabase);
                 }
             });
         });
@@ -1451,93 +1439,35 @@
                 'Deine Spende geht an den Förderverein. Der Betrag ist frei wählbar.';
             document.getElementById('superVotePackageField').hidden = true;
             document.getElementById('createSupervoteOrderButton').hidden = true;
-            document.getElementById('donationLoginPanel').hidden = false;
-            document.getElementById('donationLoginStatus').textContent = '';
             document.getElementById('bankTransferDetails').hidden = true;
             updatePaymentDetails();
+            document.getElementById('paymentNotice').textContent = 'Zahlungsdaten werden geladen ...';
             openModal('modalPayment');
-            if (donationAuth.currentUser
-                && donationAuth.currentUser.email
-                && donationAuth.currentUser.email.toLowerCase() === donationLoginEmail) {
-                loadDonationPaymentDetails();
-            } else {
-                document.getElementById('donationLoginStatus').textContent =
-                    'Melde dich mit dem BeeHappy-Spendenkonto an, um die Zahlungsdaten aufzurufen.';
-            }
-        }
-
-        async function handleDonationSignIn() {
-            const username = document.getElementById('donationUsername').value.trim();
-            const passwordInput = document.getElementById('donationPassword');
-            const status = document.getElementById('donationLoginStatus');
-            if (username.toLowerCase() !== donationLoginUsername.toLowerCase()) {
-                status.textContent = 'Benutzername oder Passwort ist nicht korrekt.';
-                return;
-            }
-            if (!passwordInput.value) {
-                status.textContent = 'Bitte gib das Passwort des BeeHappy-Spendenkontos ein.';
-                return;
-            }
-
-            try {
-                await donationAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-                await donationAuth.signInWithEmailAndPassword(donationLoginEmail, passwordInput.value);
-                passwordInput.value = '';
-                status.textContent = 'Anmeldung erfolgreich. Zahlungsdaten werden geladen ...';
-            } catch (error) {
-                console.error('Anmeldung am BeeHappy-Spendenkonto fehlgeschlagen:', error);
-                status.textContent = 'Anmeldung fehlgeschlagen. Prüfe Benutzername und Passwort oder wende dich an den Admin.';
-            }
+            loadDonationPaymentDetails();
         }
 
         async function loadDonationPaymentDetails() {
-            if (!currentPayment || currentPayment.type !== 'donation'
-                || !donationAuth.currentUser
-                || donationAuth.currentUser.email.toLowerCase() !== donationLoginEmail) return;
-
-            document.getElementById('donationLoginStatus').textContent = 'Zahlungsdaten werden geladen ...';
+            if (!currentPayment || currentPayment.type !== 'donation') return;
             try {
-                const snapshot = await donationDatabase.ref('paymentSettings/donations').once('value');
+                await ensurePaymentAccess();
+                const snapshot = await paymentDatabase.ref('paymentSettings/donations').once('value');
                 const settings = snapshot.val();
                 if (!settings || !settings.recipient || !isValidIban(settings.iban)) {
                     throw new Error('Spenden-Zahlungsdaten fehlen oder sind ungültig. Bitte Admin informieren.');
                 }
-                if (!donationAuth.currentUser
-                    || donationAuth.currentUser.email.toLowerCase() !== donationLoginEmail
-                    || !currentPayment
-                    || currentPayment.type !== 'donation') return;
+                if (!currentPayment || currentPayment.type !== 'donation') return;
 
                 currentPayment.transferDetails = settings;
                 document.getElementById('bankTransferDetails').hidden = false;
-                document.getElementById('donationLoginStatus').textContent =
-                    'Zahlungsdaten geladen. Die Überweisung geht an den Förderverein für das Beehappy Projekt.';
                 updatePaymentDetails();
             } catch (error) {
                 console.error('Spenden-Zahlungsdaten konnten nicht geladen werden:', error);
-                document.getElementById('donationLoginStatus').textContent =
-                    error.message || 'Zahlungsdaten konnten nicht geladen werden. Bitte Admin informieren.';
-            }
-        }
-
-        async function signOutDonationAccount() {
-            try {
-                await donationAuth.signOut();
-            } catch (error) {
-                console.error('Abmeldung vom BeeHappy-Spendenkonto fehlgeschlagen:', error);
-                document.getElementById('donationLoginStatus').textContent =
-                    'Abmelden war nicht möglich. Bitte versuche es erneut.';
+                document.getElementById('paymentNotice').textContent =
+                    `${error.message || 'Zahlungsdaten konnten nicht geladen werden.'} Bitte Firebase-Zugriff und Verbindung prüfen.`;
             }
         }
 
         function superVote(id) {
-            if (!auth.currentUser || !auth.currentUser.emailVerified) {
-                document.getElementById('accountStatus').textContent = auth.currentUser
-                    ? 'Bestätige zuerst deine E-Mail-Adresse, bevor du Super-Stimmen beantragst.'
-                    : 'Melde dich mit einem bestätigten E-Mail-Konto an, bevor du Super-Stimmen beantragst.';
-                if (!auth.currentUser) document.getElementById('accountEmail').focus();
-                return;
-            }
-
             const selectedName = sampleData.find(item => item.id === id);
             if (!selectedName) {
                 document.getElementById('actionStatus').textContent =
@@ -1549,7 +1479,7 @@
                 type: 'supervote',
                 id,
                 name: selectedName.name,
-                accountId: auth.currentUser.uid
+                accountId: isEmailVerifiedUser(auth.currentUser) ? auth.currentUser.uid : null
             };
             document.getElementById('paymentHeading').textContent = 'Super-Stimmen überweisen';
             document.getElementById('paymentDescription').textContent =
@@ -1584,14 +1514,14 @@
                     : 'Bitte Paket auswählen')
                 : 'frei wählbar';
             document.getElementById('paymentRecipient').textContent = isSupervote
-                ? (settings.recipient || 'Wird nach Anmeldung und Bestellung angezeigt')
-                : (settings.recipient || 'Nach Anmeldung verfügbar');
+                ? (settings.recipient || 'Wird nach der Bestellung angezeigt')
+                : (settings.recipient || 'Wird geladen');
             const ibanIsValid = isValidIban(settings.iban);
             document.getElementById('paymentIban').textContent = ibanIsValid
                 ? settings.iban.replace(/\s/g, '').toUpperCase()
                 : (isSupervote
-                    ? (settings.iban ? 'IBAN ist ungültig' : 'Wird nach Anmeldung und Bestellung angezeigt')
-                    : (settings.iban ? 'IBAN ist ungültig' : 'Nach Anmeldung verfügbar'));
+                    ? (settings.iban ? 'IBAN ist ungültig' : 'Wird nach der Bestellung angezeigt')
+                    : (settings.iban ? 'IBAN ist ungültig' : 'Wird geladen'));
             document.getElementById('paymentPurpose').textContent = isSupervote
                 ? (currentPayment.orderNumber
                     ? `beehappy projekt | ${currentPayment.name} | ${packageSize} Stimmen | Bestellnr ${currentPayment.orderNumber}`
@@ -1611,45 +1541,46 @@
                     ? 'Überweisungen können 1–2 Bankarbeitstage dauern. Die beantragten Stimmen sind bis zur manuellen Prüfung ungültig. Verwende den vollständigen Verwendungszweck; erst nach Freigabe werden Stimmen übertragen.'
                     : (!selectedPackage
                         ? 'Bitte zuerst ein Paket auswählen. Noch keine Überweisung ausführen.'
-                        : 'Nach der Anmeldung werden die geschützten Überweisungsdaten geladen und eine Bestellnummer erstellt.'))
+                        : 'Fordere die Überweisungsdaten an; dafür ist keine Kontoanmeldung nötig.'))
                 : (paymentConfigured
                     ? 'Bitte verwende den angegebenen Verwendungszweck.'
-                    : 'Melde dich mit dem BeeHappy-Spendenkonto an, um die Zahlungsdaten aufzurufen.');
+                    : 'Die Zahlungsdaten sind noch nicht verfügbar. Bitte später erneut versuchen oder den Admin informieren.');
         }
 
         async function createSupervoteOrder() {
             if (!currentPayment || currentPayment.type !== 'supervote') return;
-            const user = auth.currentUser;
             const packageVotes = Number(document.getElementById('superVotePackage').value);
             const selectedPackage = superVotePackages[packageVotes];
             const button = document.getElementById('createSupervoteOrderButton');
-            if (!user || !user.emailVerified) {
-                document.getElementById('paymentNotice').textContent =
-                    'Bitte melde dich mit einem bestätigten E-Mail-Konto an, bevor du eine Super-Stimme beantragst.';
-                return;
-            }
             if (!selectedPackage) {
                 updatePaymentDetails();
                 return;
             }
 
             button.disabled = true;
-            document.getElementById('paymentNotice').textContent = 'Geschützte Überweisungsdaten werden geladen ...';
+            document.getElementById('paymentNotice').textContent = 'Überweisungsdaten und Bestellnummer werden geladen ...';
             try {
-                const settingsSnapshot = await database.ref('paymentSettings/supervotes').once('value');
+                const signedInUser = isEmailVerifiedUser(auth.currentUser) ? auth.currentUser : null;
+                const paymentAccessUser = await ensurePaymentAccess();
+                const orderUser = signedInUser || paymentAccessUser;
+                const orderDatabase = signedInUser ? database : paymentDatabase;
+                const settingsSnapshot = await paymentDatabase.ref('paymentSettings/supervotes').once('value');
                 const settings = settingsSnapshot.val();
-                if (!auth.currentUser || auth.currentUser.uid !== user.uid || !auth.currentUser.emailVerified) {
+                if (signedInUser && (!isEmailVerifiedUser(auth.currentUser) || auth.currentUser.uid !== signedInUser.uid)) {
                     throw new Error('Deine Anmeldung hat sich geändert. Bitte erneut anmelden und die Bestellung noch einmal starten.');
                 }
+                if (!signedInUser && (!paymentAuth.currentUser || paymentAuth.currentUser.uid !== orderUser.uid)) {
+                    throw new Error('Die anonyme Bestellsitzung hat sich geändert. Bitte versuche es erneut.');
+                }
                 if (!settings || !settings.recipient || !isValidIban(settings.iban)) {
-                    throw new Error('Die geschützten Super-Stimmen-Zahlungsdaten fehlen oder sind ungültig. Bitte Admin informieren.');
+                    throw new Error('Die Super-Stimmen-Zahlungsdaten fehlen oder sind ungültig. Bitte Admin informieren.');
                 }
 
                 document.getElementById('paymentNotice').textContent = 'Bestellung wird registriert ...';
-                const orderRef = database.ref('supervoteOrders').push();
+                const orderRef = orderDatabase.ref('supervoteOrders').push();
                 await orderRef.set({
                     orderNumber: orderRef.key,
-                    accountId: user.uid,
+                    accountId: orderUser.uid,
                     nameId: currentPayment.id,
                     plantName: currentPayment.name,
                     packageVotes,
@@ -1661,12 +1592,15 @@
                     ...currentPayment,
                     packageVotes,
                     orderNumber: orderRef.key,
-                    accountId: user.uid,
+                    accountId: orderUser.uid,
                     transferDetails: {
                         recipient: settings.recipient,
                         iban: settings.iban
                     }
                 };
+                if (!signedInUser) {
+                    subscribeToUserSupervoteOrders(orderUser, paymentDatabase);
+                }
                 document.getElementById('bankTransferDetails').hidden = false;
                 updatePaymentDetails();
             } catch (error) {
@@ -1677,7 +1611,7 @@
             }
         }
 
-        function subscribeToUserSupervoteOrders(user) {
+        function subscribeToUserSupervoteOrders(user, ordersDatabase = database) {
             if (userSupervoteOrdersRef) {
                 userSupervoteOrdersRef.off();
                 userSupervoteOrdersRef = null;
@@ -1691,7 +1625,7 @@
                 return;
             }
 
-            userSupervoteOrdersRef = database.ref('supervoteOrders')
+            userSupervoteOrdersRef = ordersDatabase.ref('supervoteOrders')
                 .orderByChild('accountId')
                 .equalTo(user.uid);
             userSupervoteOrdersRef.on('value', snapshot => {
@@ -1740,11 +1674,10 @@
         }
 
         async function showSupervoteTransfer(orderId, order) {
-            if (!auth.currentUser || !auth.currentUser.emailVerified) {
-                document.getElementById('accountStatus').textContent =
-                    'Melde dich mit einem bestätigten E-Mail-Konto an, um Überweisungsdaten zu sehen.';
-                return;
-            }
+            const user = isEmailVerifiedUser(auth.currentUser)
+                ? auth.currentUser
+                : paymentAuth.currentUser;
+            if (!user || order.accountId !== user.uid) return;
 
             currentPayment = {
                 type: 'supervote',
@@ -1752,7 +1685,7 @@
                 name: order.plantName,
                 packageVotes: Number(order.packageVotes),
                 orderNumber: orderId,
-                accountId: auth.currentUser.uid
+                accountId: user.uid
             };
             document.getElementById('paymentHeading').textContent = 'Überweisung zu deiner Bestellung';
             document.getElementById('paymentDescription').textContent =
@@ -1760,16 +1693,18 @@
             document.getElementById('superVotePackageField').hidden = true;
             document.getElementById('createSupervoteOrderButton').hidden = true;
             document.getElementById('bankTransferDetails').hidden = false;
-            document.getElementById('paymentNotice').textContent = 'Geschützte Überweisungsdaten werden geladen ...';
+            document.getElementById('paymentNotice').textContent = 'Überweisungsdaten werden geladen ...';
             openModal('modalPayment');
             try {
-                const settingsSnapshot = await database.ref('paymentSettings/supervotes').once('value');
+                await ensurePaymentAccess();
+                const settingsSnapshot = await paymentDatabase.ref('paymentSettings/supervotes').once('value');
                 const settings = settingsSnapshot.val();
-                if (!auth.currentUser || auth.currentUser.uid !== currentPayment.accountId || !auth.currentUser.emailVerified) {
-                    throw new Error('Deine Anmeldung hat sich geändert. Bitte erneut anmelden.');
+                const activeUser = isEmailVerifiedUser(auth.currentUser) ? auth.currentUser : paymentAuth.currentUser;
+                if (!activeUser || activeUser.uid !== currentPayment.accountId) {
+                    throw new Error('Die Bestellsitzung hat sich geändert. Bitte Seite neu laden.');
                 }
                 if (!settings || !settings.recipient || !isValidIban(settings.iban)) {
-                    throw new Error('Die geschützten Zahlungsdaten fehlen oder sind ungültig.');
+                    throw new Error('Die Zahlungsdaten fehlen oder sind ungültig.');
                 }
                 currentPayment.transferDetails = {
                     recipient: settings.recipient,
